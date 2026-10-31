@@ -4,13 +4,17 @@ import json, os, tempfile
 import tkinter as tk
 from ui import BG, PANEL, TEXT, MUTED, Button, Check, Motion, Panel
 
-NOTICE_ID = 'experimental-12gib-v1'
+NOTICE_ID = 'experimental-12gib-performance-v2'
 CAUTION = (
     'Set your emulator to 12 GiB RAM before testing Switch 2 packages. '
     'Some PokeDinner/Eglantine builds can exit on boot with the default 4 GiB setting.\n\n'
     'A PokeDinner 2.0.0 boot without an external main.npdm was reported with 12 GiB selected. '
     'Other games and emulator builds may behave differently. '
     'This app does not change emulator memory settings.\n\n'
+    'Performance caution: considerably lower performance was reported without the external '
+    'main.npdm, even with 12 GiB selected. Keep Create package folder enabled and retain '
+    'its companion beside the package for the recommended setup. This is a reported '
+    'observation, not a benchmark or a guarantee for every game.\n\n'
     'Verification checks package integrity, not successful booting, gameplay or performance.'
 )
 
