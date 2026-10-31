@@ -1,0 +1,54 @@
+name: Build and release Windows app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Test, build and publish
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Run synthetic tests
+        run: python -m unittest test_engine test_ui test_artwork test_performance_safety test_nsp test_compatibility
+      - name: Build portable executable
+        run: python -m PyInstaller --noconfirm --clean Packager.spec
+      - name: Check frozen XCI and NSP builds
+        run: python frozen_smoke.py
+      - name: Assemble allowlisted release
+        run: python package_release.py
+      - name: Publish private repository release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $version = python -c "import sys; sys.path.insert(0,'src'); import engine; print(engine.VERSION)"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read app version.' }
+          $tag = 'v' + $version
+          $assets = @(Get-ChildItem -LiteralPath release -Filter '*.zip' -File | ForEach-Object FullName)
+          $assets += (Join-Path (Get-Location) 'release/SHA256SUMS.txt')
+          gh release create $tag @assets --target $env:GITHUB_SHA --title "Switch 2 Game Packager $version" --notes-file release/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release could not be created. Existing releases are never overwritten; use a new app version.' }
