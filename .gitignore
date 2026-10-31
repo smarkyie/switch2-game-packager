@@ -1,0 +1,25 @@
+# Generated content stays out of Git.
+/build/
+/dist/
+/release/
+/test-work/
+/.venv/
+__pycache__/
+*.py[cod]
+*.partial
+*.xci
+*.nsp
+*.nca
+*.npdm
+*.nsz
+*.xcz
+*.romfs
+*.report.json
+*.error.txt
+*.exe
+*.zip
+.env
+.env.*
+prod.keys*
+title.keys*
+

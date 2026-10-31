@@ -1,0 +1,114 @@
+"""NSP container, common-pipeline efficiency and failure regression tests."""
+from pathlib import Path
+from collections import Counter
+from unittest.mock import patch
+import json,mmap,struct,sys,tempfile,threading,unittest
+sys.path.insert(0,str(Path(__file__).parent/'src'))
+import engine,verify_format as reader
+from app import cli
+from PIL import Image
+
+class NspTests(unittest.TestCase):
+    def setUp(self):
+        scratch=Path(__file__).parent/'test-work';scratch.mkdir(exist_ok=True)
+        self.tmp=tempfile.TemporaryDirectory(prefix='nsp-',dir=scratch);self.root=Path(self.tmp.name)
+        self.game=self.root/'Example Game'
+        (self.game/'exefs').mkdir(parents=True);(self.game/'romfs'/'日本語').mkdir(parents=True)
+        npdm=bytearray(0x100);npdm[:4]=b'META';struct.pack_into('<II',npdm,0x70,0x80,0x80)
+        npdm[0x80:0x84]=b'ACI0';struct.pack_into('<Q',npdm,0x90,0x0400111122220000)
+        (self.game/'exefs/main.npdm').write_bytes(npdm);(self.game/'exefs/main').write_bytes(b'NSO0'+bytes(512))
+        (self.game/'romfs'/'日本語/data.bin').write_bytes(bytes(range(256))*1000)
+        (self.game/'romfs/empty').write_bytes(b'')
+        self.snapshot=engine.find_snapshots(self.game)[0][0];self.output=self.root/'Game.nsp'
+        self.art=self.root/'art.webp';Image.new('RGB',(400,200),'#3388ee').save(self.art)
+    def tearDown(self):self.tmp.cleanup()
+    def build(self,**kw):return engine.build(self.snapshot,self.output,'Example 日本語','1.0',self.art,**kw)
+    def test_nsp_round_trip_metadata_art_and_standalone_readback(self):
+        report=self.build()
+        self.assertEqual(report['output_format'],'NSP');self.assertTrue(report['verified'])
+        self.assertEqual(report['source_file_count'],4)
+        self.assertEqual(json.loads(self.output.with_suffix('.nsp.report.json').read_text())['sha256'],report['sha256'])
+        with self.output.open('rb') as f,mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ) as mm:
+            contents=reader.partition(reader.Region(mm));self.assertEqual(len(contents),3)
+            self.assertEqual({b[0x205] for b in contents.values()},{0,1,2})
+            self.assertTrue(all(b[0x204]==0 for b in contents.values()))
+            control=next(reader.nca_sections(b) for b in contents.values() if b[0x205]==2)
+            files=reader.romfs_files(control[2][0][1])
+            self.assertEqual(bytes(files['icon_AmericanEnglish.dat']),engine.artwork_bytes(self.art))
+            nacp=bytes(files['control.nacp'])
+            self.assertEqual(nacp[:0x200].split(b'\0')[0].decode(),'Example 日本語')
+            self.assertEqual(nacp[0x3060:0x3070].split(b'\0')[0],b'1.0')
+        checked=engine.verify_image(self.output,self.snapshot,engine.source_inventory(self.snapshot.root),lambda *a:None,None)
+        self.assertEqual(len(checked),4)
+    def test_nsp_has_no_extra_input_pass_or_intermediate_xci(self):
+        inputs=set(engine.source_inventory(self.snapshot.root));original=Path.open
+        counts={};writes={}
+        for kind in ('xci','nsp'):
+            reads=Counter();created=[]
+            def tracked(path,*args,**kw):
+                mode=args[0] if args else kw.get('mode','r')
+                if path in inputs and 'r' in mode:reads[path]+=1
+                if 'x' in mode or 'w' in mode:created.append(path)
+                return original(path,*args,**kw)
+            with patch.object(Path,'open',tracked):
+                report=engine.build(self.snapshot,self.root/('Compared.'+kind),'Example','1')
+            counts[kind]=reads;writes[kind]=created
+        self.assertEqual(counts['nsp'],counts['xci'])
+        self.assertFalse(any('.xci' in p.name.lower() for p in writes['nsp']))
+    def test_nsp_cancel_cleans_partial(self):
+        event=threading.Event()
+        def notify(stage,value):
+            if stage=='Writing NSP':event.set()
+        with self.assertRaises(InterruptedError):self.build(notify=notify,cancel=event)
+        self.assertFalse(self.output.exists());self.assertFalse(list(self.root.glob('*.partial')))
+    def test_nsp_corruption_rejected(self):
+        def notify(stage,value):
+            if stage=='Verifying container integrity':
+                partial=next(self.root.glob('*.partial'))
+                with partial.open('r+b') as f:
+                    f.seek(-1,2);b=f.read(1);f.seek(-1,2);f.write(bytes([b[0]^1]))
+        with self.assertRaises(AssertionError):self.build(notify=notify)
+        self.assertFalse(self.output.exists());self.assertFalse(list(self.root.glob('*.partial')))
+    def test_nsp_existing_output_and_format_mismatch(self):
+        self.output.write_bytes(b'original')
+        with self.assertRaises(FileExistsError):self.build()
+        self.assertEqual(self.output.read_bytes(),b'original')
+        with self.assertRaisesRegex(ValueError,'end in .xci'):self.build(output_format='xci')
+        with self.assertRaisesRegex(ValueError,'Choose XCI or NSP'):self.build(output_format='zip')
+    def test_cli_infers_nsp_and_accepts_explicit_format(self):
+        for explicit in (False,True):
+            output=self.root/('CLI-'+str(explicit)+'.nsp')
+            args=['--package',str(self.game),'--output',str(output)]
+            if explicit:args+=['--format','nsp','--skip-verification']
+            result=cli(args)
+            self.assertEqual(result['output_format'],'NSP');self.assertEqual(result['verified'],not explicit)
+
+    def test_both_formats_keep_exact_switch2_companion(self):
+        original=(self.game/'exefs/main.npdm').read_bytes()
+        for kind in ('nsp','xci'):
+            out=self.root/('Companion.'+kind)
+            report=engine.build(self.snapshot,out,'Example','1')
+            self.assertEqual((out.parent/'main.npdm').read_bytes(),original)
+            self.assertEqual(report['switch2_companion']['file'],'main.npdm')
+
+    def test_companion_conflict_is_refused_without_overwrite(self):
+        companion=self.root/'main.npdm';companion.write_bytes(b'existing metadata')
+        with self.assertRaisesRegex(ValueError,'separate folder'):self.build()
+        self.assertEqual(companion.read_bytes(),b'existing metadata');self.assertFalse(self.output.exists())
+
+    def test_cancellation_does_not_leave_companion(self):
+        event=threading.Event()
+        def notify(stage,value):
+            if stage=='Writing NSP':event.set()
+        with self.assertRaises(InterruptedError):self.build(notify=notify,cancel=event)
+        self.assertFalse((self.root/'main.npdm').exists())
+
+    def test_companion_created_during_build_is_preserved(self):
+        companion=self.root/'main.npdm'
+        def notify(stage,value):
+            if stage=='Verifying container integrity':companion.write_bytes(b'external metadata')
+        with self.assertRaisesRegex(ValueError,'changed during packaging'):self.build(notify=notify)
+        self.assertEqual(companion.read_bytes(),b'external metadata');self.assertFalse(self.output.exists())
+        self.assertFalse(list(self.root.glob('*.partial')))
+
+if __name__=='__main__':unittest.main(verbosity=2)

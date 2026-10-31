@@ -1,0 +1,63 @@
+# Release notes
+
+## 1.4.1 — 2026-10-31
+
+- Emit the snapshot's exact `main.npdm` beside XCI and NSP so early detection in the checked PokeDinner/Eglantine loader selects Switch 2's memory layout and clock.
+- Give each game/snapshot a separate default output folder; refuse a different existing companion and preserve files created concurrently. Record the companion hash and remind users to keep it beside the package.
+- Correct generated NACP platform/error-prefix offsets, and read TitlesDataFormat at the documented offset so compressed title data is preserved.
+- Add explicit **Set up emulator keys folder…** under Notes & compatibility for missing plaintext placeholders, with preservation of real keys/existing entries, backups and validation.
+- Add metadata, companion-file, concurrent-file preservation and setup regression tests. Checked real Pokopia NSP and Mario Kart World XCI rendering after compatibility setup.
+- Prepare private GitHub source hosting and Windows build/release automation, excluding game content and local build caches.
+
+## 1.4.0 — 2026-10-31
+
+- Added a rounded XCI/NSP selector in Output; format changes update the destination extension, save dialog, build button and completion status.
+- Added direct streaming NSP/PFS0 packaging with Download distribution metadata, correct content IDs and CNMT references; no intermediate XCI or NCA files.
+- Shared all source scanning, integrity-tree construction, artwork processing and verification optimizations with XCI.
+- Added format-aware CLI output (`--format xci|nsp`, or infer from the filename) and JSON reports.
+- Added NSP payload/metadata/artwork round trips, no-extra-source-pass checks, cancellation, corruption, no-overwrite, format-mismatch and UI coverage.
+- Preserved all existing UI features and the executable filename for compatibility. This release still packages one complete extracted snapshot; it does not merge separate patch/DLC inputs or convert existing encrypted containers.
+
+## 1.3.0 — 2026-10-31
+
+- Replaced repeated RomFS sibling searches with a linear pass for large file collections.
+- Reused directory metadata and known file sizes to reduce filesystem queries.
+- Captured source SHA-256 while writing, retaining full independent output verification without rereading all originals.
+- Reused complete NCA hashes for CNMT checks and used scoped zero-copy views for output hashing.
+- Added file-count feedback for scanning and RomFS table creation, plus stage timings in JSON reports.
+- Added corruption, source-mutation and mmap-cleanup regression tests; documented measurements and NSP feasibility.
+- Retained every existing GUI and artwork feature. Output remains XCI only.
+
+## 1.2.0 — 2026-10-31
+
+- Added **Crop icon**: square positioning, drag/pan, slider and wheel zoom, live 256×256 preview, reset, apply and cancel.
+- Center-crop artwork by default, with **Fit whole image** retained in the editor.
+- Added a Paste button and Ctrl+V for copied images and artwork files; retained normal text pasting.
+- Extended the artwork picker and drop handler to WEBP, AVIF, GIF, TIFF, ICO, ICNS, TGA, portable bitmap formats and JPEG2000, alongside PNG/JPEG/BMP.
+- First-frame/page decoding, EXIF orientation, alpha handling and source preservation are shared by preview and output.
+- Added artwork/crop/clipboard tests and updated portable runtime checks and redistribution notes.
+
+## 1.1.0 — 2026-10-31
+
+- Minimal reference-inspired layout with separate game files, game details, output and cover-art cards.
+- Rounded antialiased panels, input fields and buttons; supersampled original icons.
+- Subtle cubic-eased button hover, panel entrance, artwork reveal, status and progress animations.
+- No animations toggle; automatic respect for Windows' motion preference.
+- Native Windows shell drops for game folders and artwork, alongside existing browse/path-entry controls.
+- Every prior packaging control retained: snapshot selector, editable title/version, automatic title ID, artwork removal, output selection, full verification, build cancellation, output-folder access, notes and compatibility export.
+- Responsive layout checked at the minimum window size; fixed shutdown callback cleanup.
+- Two UI integration tests added; source, licensing and notes updated for redistribution.
+
+## 1.0.0 — 2026-10-31
+
+- Portable Windows x64 EXE with bundled Python/Tcl/Tk/Pillow runtime.
+- Main game-folder selection and automatic discovery of sibling ExeFS/RomFS snapshots.
+- Title ID detection from NPDM, editable display name and version.
+- User-selected artwork, fitted to a square library icon without cropping.
+- Plaintext Program/Control/Meta NCA generation and trimmed XCI/HFS0 packaging.
+- Full source-payload comparison, container integrity checks and local JSON reports.
+- Background progress, cooperative cancellation, removal of unfinished output and refusal to overwrite existing XCIs.
+- Optional export of local plaintext compatibility placeholders. No automatic emulator changes.
+- Full source code, tests, build recipe, MIT license and third-party notices included.
+
+Initial scope is one complete mounted snapshot at a time, up to 32 GiB. Separate DLC, patch-only inputs, automatic base/update merging, and multi-program packages are not supported. Compatibility with every Switch 2 game or emulator is not established.
