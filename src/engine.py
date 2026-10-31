@@ -8,7 +8,7 @@ import verify_format as verifier
 from artwork import artwork_bytes, ArtworkSelection
 from compatibility import placeholder_text
 
-VERSION = '1.4.2'
+VERSION = '1.4.3'
 
 @dataclass
 class Snapshot:
@@ -176,9 +176,10 @@ def _verify_region(buf,snapshot,inventory,notify,source_hashes=None):
     cfiles=verifier.romfs_files(control[2][0][1]);assert 'control.nacp' in cfiles
     return checked
 
-def build(snapshot,output,title,display_version,artwork_path=None,verify=True,notify=lambda *a:None,cancel=None,output_format=None):
+def build(snapshot,output,title,display_version,artwork_path=None,verify=True,notify=lambda *a:None,cancel=None,output_format=None,package_folder=False):
     started=time.perf_counter();timings={};tick=started
     output=Path(output).resolve();root=snapshot.root.resolve()
+    if package_folder:output=(output.parent/output.stem/output.name).resolve()
     if not title.strip():raise ValueError('Enter a game title.')
     if len(display_version.encode('utf-8'))>15:raise ValueError('Display version must fit within 15 UTF-8 bytes.')
     kind=(output_format or output.suffix.lstrip('.')).lower()
@@ -189,7 +190,7 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
         raise ValueError('Save the XCI outside the source exefs and romfs folders.')
     if output.exists():raise FileExistsError('An output with that name already exists. Choose another filename.')
     if read_title_id(root/'exefs/main.npdm')!=snapshot.title_id:raise ValueError('Source title ID changed. Scan the folder again.')
-    companion=output.parent/'main.npdm' if snapshot.title_id>>56==4 else None
+    companion=output.parent/'main.npdm' if package_folder and snapshot.title_id>>56==4 else None
     companion_data=(root/'exefs/main.npdm').read_bytes() if companion else None
     if companion and companion.exists() and companion.read_bytes()!=companion_data:
         raise ValueError('A different main.npdm already exists in the output folder. Choose a separate folder for this game/snapshot; existing metadata will not be overwritten.')
@@ -286,13 +287,14 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
                     'source_file_count':len(inventory),'verified':verify,'files':checked,
                     'timings_seconds':{**timings,'total':time.perf_counter()-started},
                     'verification_method':'Source SHA-256 captured during writing; full independent output readback.' if verify else 'Skipped',
-                    'output_format':kind.upper(),
+                    'output_format':kind.upper(),'output':str(output),'package_folder':bool(package_folder),
                     'switch2_companion':{'file':'main.npdm','sha256':hashlib.sha256(companion_data).hexdigest(),
                         'purpose':'Keep beside the package for Eglantine/PokeDinner Switch 2 memory/clock detection.'} if companion else None,
                     'format':f'Unsigned plaintext emulator {kind.upper()}; one complete snapshot; no automatic DLC merge.'}
-            report_path=output.with_suffix('.'+kind+'.report.json')
-            if report_path.exists():report_path=output.with_name(output.name+'.'+uuid.uuid4().hex[:8]+'.report.json')
-            report_path.write_text(json.dumps(report,indent=2),encoding='utf-8')
+            if package_folder:
+                report_path=output.with_suffix('.'+kind+'.report.json')
+                if report_path.exists():report_path=output.with_name(output.name+'.'+uuid.uuid4().hex[:8]+'.report.json')
+                with report_path.open('x',encoding='utf-8') as f:f.write(json.dumps(report,indent=2))
             notify('Complete',100);return report
         finally:
             if not committed and temp_path.exists():temp_path.unlink()

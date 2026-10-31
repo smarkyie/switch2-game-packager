@@ -6,27 +6,36 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageOps, ImageTk, ImageGrab
 import engine
 import compatibility
+from startup_notice import StartupNotice, default_preferences_path, should_show
 from artwork import ArtworkSelection, ARTWORK_FILETYPES, IMAGE_EXTENSIONS
 from crop_dialog import CropDialog
 from ui import Layout, BG, PANEL, FIELD, TEXT, MUTED, ACCENT, BORDER
 
 class App(Layout,tk.Tk):
-    def __init__(self):
+    def __init__(self,show_startup=True,preferences_path=None):
         super().__init__()
         self.title('Switch 2 Game Packager');self.configure(bg=BG)
         self.geometry('1020x800');self.minsize(950,760)
         self.events=queue.Queue();self.cancel_event=threading.Event();self.busy=False;self.scanning=False
         self.snapshots=[];self.art_path=None;self.art_selection=None;self.last_output=None;self.last_progress=0
         self._clipboard_temp=None;self._art_editor=None
+        self.preferences_path=Path(preferences_path) if preferences_path is not None else default_preferences_path()
+        self._startup_dialog=None;self._startup_job=None
         self.folder=tk.StringVar();self.snapshot_label=tk.StringVar();self.title_text=tk.StringVar()
         self.version_text=tk.StringVar(value='Snapshot');self.output=tk.StringVar();self.id_text=tk.StringVar(value='Choose a game folder to detect the title ID.')
         self.output_format=tk.StringVar(value='XCI')
-        self.verify=tk.BooleanVar(value=True);self.status=tk.StringVar(value='Ready')
+        self.verify=tk.BooleanVar(value=True);self.package_folder=tk.BooleanVar(value=True);self.status=tk.StringVar(value='Ready')
         self.detail=tk.StringVar(value='Select a game folder to begin.')
         self.style();self.layout();self.protocol('WM_DELETE_WINDOW',self.close);self._poll_job=self.after(100,self.poll)
         self.output_format.trace_add('write',self.format_changed)
         self.bind_all('<Control-v>',self.paste_art_shortcut,add='+')
         self.bind_all('<Control-V>',self.paste_art_shortcut,add='+')
+        if show_startup:self._startup_job=self.after(180,self.show_startup_caution)
+
+    def show_startup_caution(self):
+        self._startup_job=None
+        if self._startup_dialog is not None and self._startup_dialog.winfo_exists():return
+        if should_show(self.preferences_path):self._startup_dialog=StartupNotice(self,self.preferences_path)
 
     def pick_folder(self):
         value=filedialog.askdirectory(title='Select main game dump folder',parent=self)
@@ -53,7 +62,7 @@ class App(Layout,tk.Tk):
         else:v='dump-'+str(s.version) if s.version else 'Snapshot'
         self.version_text.set(v)
         name=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',s.title).rstrip('. ')[:110]
-        destination=s.root.parent/'Packed'/f'{name} [{s.title_id:016X}] [{s.version}]'
+        destination=s.root.parent
         self.output.set(str(destination/(f'{name} [{s.title_id:016X}].{self.output_format.get().lower()}')))
 
     def format_changed(self,*args):
@@ -134,7 +143,7 @@ class App(Layout,tk.Tk):
 
     def set_busy(self,value):
         self.busy=value
-        for w in (self.browse,self.folder_entry,self.name_entry,self.version_entry,self.out_entry,self.save_btn,self.art_btn,self.paste_art_btn,self.clear_art_btn,self.verify_check,self.build_btn):
+        for w in (self.browse,self.folder_entry,self.name_entry,self.version_entry,self.out_entry,self.save_btn,self.art_btn,self.paste_art_btn,self.clear_art_btn,self.verify_check,self.package_folder_check,self.build_btn):
             w.configure(state='disabled' if value else 'normal')
         self.combo.configure(state='disabled' if value else 'readonly')
         self.format_combo.configure(state='disabled' if value else 'readonly')
@@ -148,6 +157,7 @@ class App(Layout,tk.Tk):
         if not self.output.get().strip():self.pick_output();return
         options=(self.snapshots[i],Path(self.output.get()),self.title_text.get().strip(),self.version_text.get().strip(),self.art_selection or self.art_path,self.verify.get())
         output_format=self.output_format.get()
+        package_folder=self.package_folder.get()
         self.set_busy(True);self.cancel_event.clear();self.last_progress=0;self.progressbar['value']=0
         self.status.set('Preparing build');self.detail.set('Your original dump stays untouched.');self.open_btn.configure(state='disabled')
         def worker():
@@ -156,7 +166,7 @@ class App(Layout,tk.Tk):
                 now=time.monotonic()
                 if now-last[0]>.12 or value>=100:
                     self.events.put(('progress',(stage,value)));last[0]=now
-            try:self.events.put(('done',engine.build(*options,notify=notify,cancel=self.cancel_event,output_format=output_format)))
+            try:self.events.put(('done',engine.build(*options,notify=notify,cancel=self.cancel_event,output_format=output_format,package_folder=package_folder)))
             except InterruptedError:self.events.put(('cancelled',None))
             except Exception as e:self.events.put(('error',(str(e),traceback.format_exc())))
         threading.Thread(target=worker,daemon=True).start()
@@ -185,9 +195,9 @@ class App(Layout,tk.Tk):
                     self.detail.set(f'{self.last_progress:.0f}% complete · originals untouched')
                 elif kind=='done':
                     self.set_busy(False);self.progressbar['value']=100;self.status.set(data['output_format']+' ready')
-                    self.last_output=Path(self.output.get());self.open_btn.configure(state='normal')
+                    self.last_output=Path(data['output']);self.open_btn.configure(state='normal')
                     self.detail.set(f'{data["size"]/1e9:.2f} GB · '+('verification passed' if data['verified'] else 'verification skipped')+
-                        (' · keep main.npdm beside it' if data.get('switch2_companion') else ''))
+                        (' · package folder created' if data.get('package_folder') else ' · single file'))
                 elif kind=='cancelled':
                     self.set_busy(False);self.status.set('Build cancelled');self.detail.set('Unfinished image removed. Your originals are unchanged.')
                 elif kind=='error':
@@ -205,7 +215,7 @@ class App(Layout,tk.Tk):
         text=('Select a complete decrypted game snapshot: sibling exefs and romfs folders. You may also select a main folder containing base and updates subfolders, then choose a snapshot.\n\n'
               'An update folder must contain a complete mounted filesystem, not only changed files. The app cannot determine completeness from file names. Separate updates, DLC and multi-program titles are not combined automatically.\n\n'
               'Choose XCI or NSP in Output. Both are unsigned plaintext emulator packages, written directly without an intermediate container. Packaging cannot add emulator support for a game. Original control metadata is preserved when present; otherwise basic metadata is generated.\n\n'
-              'Keep the generated main.npdm beside the XCI/NSP in its own game folder. The checked PokeDinner loader needs it to select Switch 2 memory and clock settings.\n\n'
+              'Experimental compatibility: set emulator memory to 12 GiB before testing Switch 2 packages. A PokeDinner 2.0.0 boot without an external main.npdm was reported with this setting; other games/builds may differ. The app does not change emulator memory settings. Create package folder is on by default: a separate folder contains the package, a metadata companion and verification report. Uncheck it to save only the XCI/NSP. Verification does not guarantee booting or gameplay.\n\n'
               'For missing-key errors, close the emulator and use Set up emulator keys folder below. It adds only missing local placeholders, preserves existing entries and prod.keys, and backs up an existing autogenerated file. These are not Nintendo keys and cannot decrypt retail content. Setup is never automatic.\n\n'
               'See the included README, TECHNICAL_NOTES and source folder for the format, tests, limitations and build instructions.')
         ttk.Label(w,text=text,wraplength=595,justify='left').pack(padx=24,anchor='w')
@@ -236,6 +246,9 @@ class App(Layout,tk.Tk):
         if self.busy:
             self.cancel();self.detail.set('Cancelling the build. Close the app again after cleanup finishes.');return
         if self._drops:self._drops.close()
+        if self._startup_job:self.after_cancel(self._startup_job)
+        if self._startup_dialog is not None and self._startup_dialog.winfo_exists():
+            self._startup_dialog.dont_show.set(False);self._startup_dialog.close()
         if self._poll_job:self.after_cancel(self._poll_job)
         self.motion.stop()
         self.destroy()
@@ -247,6 +260,7 @@ def cli(argv):
     parser.add_argument('--artwork',type=Path);parser.add_argument('--title');parser.add_argument('--snapshot',type=int,default=0)
     parser.add_argument('--display-version');parser.add_argument('--skip-verification',action='store_true')
     parser.add_argument('--format',choices=('xci','nsp'),help='Output format; inferred from --output extension when omitted.')
+    parser.add_argument('--package-folder',action=argparse.BooleanOptionalAction,default=True,help='Create a folder including metadata and a JSON report (default). Use --no-package-folder for only the XCI/NSP.')
     art_options=parser.add_mutually_exclusive_group()
     art_options.add_argument('--artwork-fit',action='store_true')
     art_options.add_argument('--artwork-crop',nargs=4,type=float,metavar=('LEFT','TOP','RIGHT','BOTTOM'))
@@ -255,7 +269,7 @@ def cli(argv):
     s=snapshots[args.snapshot]
     if (args.artwork_fit or args.artwork_crop) and not args.artwork:raise ValueError('Choose --artwork before specifying its crop mode.')
     artwork=ArtworkSelection(args.artwork,tuple(args.artwork_crop) if args.artwork_crop else None,args.artwork_fit) if args.artwork else None
-    result=engine.build(s,args.output,args.title or s.title,args.display_version or ('dump-'+str(s.version) if s.version else 'Snapshot'),artwork,not args.skip_verification,output_format=args.format)
+    result=engine.build(s,args.output,args.title or s.title,args.display_version or ('dump-'+str(s.version) if s.version else 'Snapshot'),artwork,not args.skip_verification,output_format=args.format,package_folder=args.package_folder)
     return result
 
 def main():
@@ -265,7 +279,9 @@ def main():
             if sys.stderr:print(str(e),file=sys.stderr)
             # Windowed EXEs have no console; retain a diagnostic next to the requested output.
             try:
-                args=sys.argv;dest=Path(args[args.index('--output')+1]);dest.with_suffix('.error.txt').write_text(traceback.format_exc(),encoding='utf-8')
+                args=sys.argv
+                if '--package-folder' in args:
+                    dest=Path(args[args.index('--output')+1]);dest.with_suffix('.error.txt').write_text(traceback.format_exc(),encoding='utf-8')
             except Exception:pass
             return 1
     try:ctypes.windll.shcore.SetProcessDpiAwareness(1)

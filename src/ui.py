@@ -411,7 +411,7 @@ class Layout:
         self.open_btn=Button(action,'Open output folder',self.open_output,self.motion,width=190,height=47,kind='folder',state='disabled');self.open_btn.pack(side='right',padx=(12,0))
         area=tk.Frame(self,bg=BG);area.pack(fill='both',expand=True,padx=20,pady=(0,12));self.content_area=area;self._compact=False
         area.grid_columnconfigure(0,weight=1);area.grid_columnconfigure(1,minsize=270)
-        area.grid_rowconfigure(0,weight=1,minsize=295);area.grid_rowconfigure(1,minsize=186);area.grid_rowconfigure(2,minsize=153)
+        area.grid_rowconfigure(0,weight=1,minsize=255);area.grid_rowconfigure(1,minsize=186);area.grid_rowconfigure(2,minsize=185)
         self.panels=[]
         game=Panel(area);game.grid(row=0,column=0,sticky='nsew',padx=(0,12),pady=(0,10));self.panels.append(game)
         self.heading(game.inner,'Game files','folder')
@@ -447,6 +447,7 @@ class Layout:
         self.out_entry=Entry(outrow,textvariable=self.output,placeholder='Choose where to save your package');self.out_entry.pack(side='left',fill='x',expand=True)
         self.save_btn=Button(outrow,'',self.pick_output,self.motion,width=45,height=39,kind='folder');self.save_btn.pack(side='right',padx=(7,0))
         self.verify_check=Check(out.inner,text='Verify after building',variable=self.verify);self.verify_check.pack(anchor='w',pady=(10,0))
+        self.package_folder_check=Check(out.inner,text='Create package folder',variable=self.package_folder);self.package_folder_check.pack(anchor='w',pady=(5,0))
         art=Panel(area);art.grid(row=0,column=1,rowspan=2,sticky='nsew',pady=(0,10));self.panels.append(art)
         self.heading(art.inner,'Cover art','image')
         self.preview=Cover(art.inner,self);self.preview.pack(fill='both',expand=True,pady=(1,12))
@@ -459,7 +460,7 @@ class Layout:
         self.crop_art_btn=Button(arttools,'Crop icon',self.crop_art,self.motion,width=124,height=31,quiet=True,kind='crop',state='disabled');self.crop_art_btn.pack(side='left')
         self.clear_art_btn=Button(arttools,'Remove',self.clear_art,self.motion,width=99,height=31,quiet=True,kind='close');self.clear_art_btn.pack(side='right')
         small=tk.Frame(area,bg=BG);small.grid(row=2,column=1,sticky='nw',padx=7,pady=8)
-        self.label(small,'Keep main.npdm beside the package.',color=MUTED,size=9,wraplength=245,justify='left').pack(anchor='w')
+        self.label(small,'Switch 2: set emulator memory to 12 GiB.',color=MUTED,size=9,wraplength=245,justify='left').pack(anchor='w')
         self.label(small,'Separate DLC and patch files\nare not merged automatically.',color='#738aaa',size=9,justify='left').pack(anchor='w',pady=(5,8))
         self.bind('<Configure>',self.resized,add=True)
         self.after(60,self.enter_panels)
@@ -491,8 +492,8 @@ class Layout:
             compact=event.height<810
             if compact!=self._compact:
                 self._compact=compact
-                self.drop_zone.configure(height=126 if compact else 172)
-                for row,size in enumerate((252,184,145) if compact else (295,186,153)):
+                self.drop_zone.configure(height=95 if compact else 150)
+                for row,size in enumerate((205,184,175) if compact else (255,186,185)):
                     self.content_area.grid_rowconfigure(row,minsize=size)
 
     def setup_drops(self):
