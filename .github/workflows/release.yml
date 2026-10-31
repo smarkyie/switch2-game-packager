@@ -40,7 +40,7 @@ jobs:
         run: python frozen_smoke.py
       - name: Assemble allowlisted release
         run: python package_release.py
-      - name: Publish private repository release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
