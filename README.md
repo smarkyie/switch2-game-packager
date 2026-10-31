@@ -10,6 +10,8 @@ A portable Windows app that packages a complete, already-extracted ExeFS/RomFS s
 
 A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\Switch2GamePackager\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
 
+**Performance caution:** considerably lower performance was reported when running without the external `main.npdm`, even with 12 GiB selected. Keep **Create package folder** enabled and retain its companion beside the game for the recommended setup. This is a user-reported observation, not a controlled benchmark or a guarantee for other games/builds.
+
 Both output formats stream directly to their destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
 
 ## Quick start

@@ -6,6 +6,7 @@
 - Add **Create package folder** below verification, on by default. Folder output includes metadata and a verification report; uncheck it to save only the XCI/NSP.
 - Add `--package-folder` for command-line builds and retain full verification in either mode.
 - Clarify the reported PokeDinner 2.0.0 boot without an external companion after selecting 12 GiB. No universal gameplay compatibility is claimed.
+- Warn that considerably lower performance was reported without the external companion, even with 12 GiB selected; recommend retaining it through the default package-folder mode.
 - Add startup-dialog, dismissal, output-file and folder-mode regression coverage.
 
 ## 1.4.2 — 2026-10-31

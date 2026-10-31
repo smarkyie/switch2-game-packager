@@ -18,6 +18,8 @@ Earlier package checks established structural integrity and executable loading, 
 
 A user reported booting without an external companion in PokeDinner 2.0.0 after selecting 12 GiB RAM. The original manual-test profile was also configured for 12 GiB; later failing tests used 4 GiB. This is evidence for a settings-dependent alternative, not automatic container detection or universal game support.
 
+The same user subsequently reported considerably lower performance without the external companion. No controlled FPS comparison was performed. The caution recommends retaining the companion; package-folder output remains enabled by default.
+
 The GUI now displays a startup caution with this guidance. Package-folder output is on by default and retains the companion workaround and report; unchecking it saves only the XCI/NSP. Automated coverage checks both modes, verification on/off, CLI behavior and remembered dismissal.
 
 A clean Windows VM without Python was not available for the original portability checks. The EXE bundles its runtime, but compatibility with every Windows installation is not established.

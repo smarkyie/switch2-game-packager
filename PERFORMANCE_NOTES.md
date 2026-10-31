@@ -1,5 +1,11 @@
 # Performance notes
 
+## Emulator runtime caution
+
+Considerably lower runtime performance was reported in PokeDinner when using a single package without an external `main.npdm`, even after selecting 12 GiB RAM. This is a user-reported observation, not a controlled FPS benchmark. Keep the companion beside the package for the recommended setup; **Create package folder** is enabled by default. Packaging speed and emulator gameplay performance are separate concerns.
+
+## Packaging efficiency
+
 This release targets large extracted file collections, especially the initial scanning/table stage, and reduces verification I/O. It does not promise a fixed overall speedup.
 
 Version 1.4 adds NSP as a direct streaming target. It does not build an XCI and then convert it; it packages the same content streams straight into PFS0. It adds no input pass and does not create intermediate NCA/XCI files. A synthetic regression test compares source-open counts for XCI and NSP and checks the files written by the NSP path. Full integrity and source-payload verification remain enabled for both.
