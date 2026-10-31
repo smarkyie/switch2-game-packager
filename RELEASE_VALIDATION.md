@@ -14,7 +14,7 @@ Without that companion, the checked loader selected the Switch 1 memory layout a
 
 Earlier package checks established structural integrity and executable loading, not successful game boot. They should not be read as gameplay compatibility claims.
 
-## Version 1.4.3
+## Versions 1.4.3–1.4.4
 
 A user reported booting without an external companion in PokeDinner 2.0.0 after selecting 12 GiB RAM. The original manual-test profile was also configured for 12 GiB; later failing tests used 4 GiB. This is evidence for a settings-dependent alternative, not automatic container detection or universal game support.
 

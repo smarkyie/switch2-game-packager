@@ -1,12 +1,18 @@
 # Release notes
 
+## 1.4.4 — 2026-10-31
+
+- Add the reported performance drop without an external `main.npdm` to the startup caution, Notes & compatibility, README and release notes.
+- Recommend keeping **Create package folder** enabled and retaining its companion beside the game. The performance observation is user-reported, not a controlled benchmark.
+- Refresh remembered-caution preferences so the new warning is shown after an older notice was dismissed.
+- Retain the 12 GiB guidance, default-on package-folder option and single-file output when unchecked. Packaging behavior is unchanged from 1.4.3.
+
 ## 1.4.3 — 2026-10-31
 
 - Add a styled startup caution about experimental compatibility and the emulator 12 GiB memory setting, with a local remember-dismissal option.
 - Add **Create package folder** below verification, on by default. Folder output includes metadata and a verification report; uncheck it to save only the XCI/NSP.
 - Add `--package-folder` for command-line builds and retain full verification in either mode.
 - Clarify the reported PokeDinner 2.0.0 boot without an external companion after selecting 12 GiB. No universal gameplay compatibility is claimed.
-- Warn that considerably lower performance was reported without the external companion, even with 12 GiB selected; recommend retaining it through the default package-folder mode.
 - Add startup-dialog, dismissal, output-file and folder-mode regression coverage.
 
 ## 1.4.2 — 2026-10-31
