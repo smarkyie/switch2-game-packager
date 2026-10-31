@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-The release workflow requires all 36 synthetic tests, a Windows portable build, and eight packaged-EXE checks covering PNG, WEBP, ICO and AVIF artwork in both XCI and NSP. Fixtures contain no game content.
+The release workflow requires all 39 synthetic tests, a Windows portable build, and 16 packaged-EXE checks covering PNG, WEBP, ICO and AVIF artwork in both XCI and NSP with single-file and package-folder output. Fixtures contain no game content.
 
 Coverage includes payload and metadata round trips, integrity/corruption checks, source changes, cancellation cleanup, refusal to overwrite existing files, artwork crop/clipboard/drop behavior, companion preservation and explicit compatibility setup.
 
@@ -14,8 +14,10 @@ Without that companion, the checked loader selected the Switch 1 memory layout a
 
 Earlier package checks established structural integrity and executable loading, not successful game boot. They should not be read as gameplay compatibility claims.
 
-## Version 1.4.2
+## Version 1.4.3
 
-This version updates documentation, notices and release packaging. Conversion behavior is unchanged from 1.4.1. Current test/build results are available in the corresponding GitHub Actions run.
+A user reported booting without an external companion in PokeDinner 2.0.0 after selecting 12 GiB RAM. The original manual-test profile was also configured for 12 GiB; later failing tests used 4 GiB. This is evidence for a settings-dependent alternative, not automatic container detection or universal game support.
+
+The GUI now displays a startup caution with this guidance. Package-folder output is on by default and retains the companion workaround and report; unchecking it saves only the XCI/NSP. Automated coverage checks both modes, verification on/off, CLI behavior and remembered dismissal.
 
 A clean Windows VM without Python was not available for the original portability checks. The EXE bundles its runtime, but compatibility with every Windows installation is not established.

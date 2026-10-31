@@ -31,7 +31,7 @@ Optional command-line packaging:
 .\.venv\Scripts\python.exe src\app.py --package "D:\My Game Dump" --output "D:\Packed\My Game.nsp" --format nsp
 ```
 
-`--snapshot 0` selects the first detected candidate (highest numeric folder version). `--display-version` sets the NACP display label; the snapshot folder's numeric version is retained for CNMT. `--format xci|nsp` is optional: the format is otherwise inferred from the output extension. Explicit format and extension must agree. `--skip-verification` disables the full readback comparison. The windowed EXE accepts these arguments too, but does not provide console output; use its `.xci.report.json` / `.nsp.report.json` or `.error.txt` file.
+`--snapshot 0` selects the first detected candidate (highest numeric folder version). `--display-version` sets the NACP display label; the snapshot folder's numeric version is retained for CNMT. `--format xci|nsp` is optional: the format is otherwise inferred from the output extension. Explicit format and extension must agree. Package-folder output is enabled by default; `--package-folder` explicitly selects it. Use `--no-package-folder` to save only the XCI/NSP. `--skip-verification` disables the full readback comparison. The windowed EXE accepts these arguments too, but does not provide console output; enable `--package-folder` for a JSON report or local `.error.txt` diagnostic.
 
 ## Files
 
@@ -42,6 +42,7 @@ Optional command-line packaging:
 - `src/engine.py`: snapshot discovery, metadata/artwork handling, build orchestration and verification.
 - `src/container_format.py`: streaming PFS0/HFS0/RomFS/NCA writers.
 - `src/verify_format.py`: independent bounded reader and integrity checks.
+- `src/startup_notice.py`: startup caution and local dismissal preference.
 - `src/compatibility.py`: explicit, non-destructive setup for plaintext-repack placeholder entries.
 - `test_engine.py`: synthetic Unicode/multi-version round trip, artwork handling, cancellation cleanup, no-overwrite and invalid-input cases.
 - `test_ui.py`: synthetic end-to-end UI build, native shell folder/artwork drops, original control retention, motion interpolation and minimum-size visibility checks. Run on Windows with a desktop session available.

@@ -27,7 +27,7 @@ class NspTests(unittest.TestCase):
         report=self.build()
         self.assertEqual(report['output_format'],'NSP');self.assertTrue(report['verified'])
         self.assertEqual(report['source_file_count'],4)
-        self.assertEqual(json.loads(self.output.with_suffix('.nsp.report.json').read_text())['sha256'],report['sha256'])
+        self.assertFalse(self.output.with_suffix('.nsp.report.json').exists())
         with self.output.open('rb') as f,mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ) as mm:
             contents=reader.partition(reader.Region(mm));self.assertEqual(len(contents),3)
             self.assertEqual({b[0x205] for b in contents.values()},{0,1,2})
@@ -87,28 +87,53 @@ class NspTests(unittest.TestCase):
         original=(self.game/'exefs/main.npdm').read_bytes()
         for kind in ('nsp','xci'):
             out=self.root/('Companion.'+kind)
-            report=engine.build(self.snapshot,out,'Example','1')
-            self.assertEqual((out.parent/'main.npdm').read_bytes(),original)
+            report=engine.build(self.snapshot,out,'Example','1',package_folder=True)
+            actual=out.parent/out.stem/out.name
+            self.assertEqual(Path(report['output']),actual)
+            self.assertEqual((actual.parent/'main.npdm').read_bytes(),original)
+            self.assertTrue(actual.with_suffix('.'+kind+'.report.json').is_file())
             self.assertEqual(report['switch2_companion']['file'],'main.npdm')
 
     def test_companion_conflict_is_refused_without_overwrite(self):
-        companion=self.root/'main.npdm';companion.write_bytes(b'existing metadata')
-        with self.assertRaisesRegex(ValueError,'separate folder'):self.build()
+        companion=self.root/self.output.stem/'main.npdm';companion.parent.mkdir();companion.write_bytes(b'existing metadata')
+        with self.assertRaisesRegex(ValueError,'separate folder'):self.build(package_folder=True)
         self.assertEqual(companion.read_bytes(),b'existing metadata');self.assertFalse(self.output.exists())
 
     def test_cancellation_does_not_leave_companion(self):
         event=threading.Event()
         def notify(stage,value):
             if stage=='Writing NSP':event.set()
-        with self.assertRaises(InterruptedError):self.build(notify=notify,cancel=event)
-        self.assertFalse((self.root/'main.npdm').exists())
+        with self.assertRaises(InterruptedError):self.build(notify=notify,cancel=event,package_folder=True)
+        self.assertFalse((self.root/self.output.stem/'main.npdm').exists())
 
     def test_companion_created_during_build_is_preserved(self):
-        companion=self.root/'main.npdm'
+        companion=self.root/self.output.stem/'main.npdm'
         def notify(stage,value):
             if stage=='Verifying container integrity':companion.write_bytes(b'external metadata')
-        with self.assertRaisesRegex(ValueError,'changed during packaging'):self.build(notify=notify)
+        with self.assertRaisesRegex(ValueError,'changed during packaging'):self.build(notify=notify,package_folder=True)
         self.assertEqual(companion.read_bytes(),b'external metadata');self.assertFalse(self.output.exists())
         self.assertFalse(list(self.root.glob('*.partial')))
+
+    def test_default_outputs_only_game_file_with_either_verification_setting(self):
+        for kind in ('xci','nsp'):
+            for verified in (True,False):
+                folder=self.root/(kind+str(verified));folder.mkdir()
+                out=folder/('Only.'+kind)
+                report=engine.build(self.snapshot,out,'Example','1',verify=verified)
+                self.assertEqual(list(folder.iterdir()),[out])
+                self.assertFalse(report['package_folder']);self.assertIsNone(report['switch2_companion'])
+                self.assertEqual(report['verified'],verified)
+
+    def test_cli_package_folder_default_and_single_file_override(self):
+        out=self.root/'CLI folder.nsp'
+        report=cli(['--package',str(self.game),'--output',str(out)])
+        actual=out.parent/out.stem/out.name
+        self.assertTrue(actual.is_file());self.assertFalse(out.exists())
+        self.assertEqual(Path(report['output']),actual);self.assertTrue(report['package_folder'])
+        self.assertTrue(actual.with_suffix('.nsp.report.json').is_file())
+        bare=self.root/'Single CLI.nsp'
+        result=cli(['--package',str(self.game),'--output',str(bare),'--no-package-folder'])
+        self.assertTrue(bare.is_file());self.assertFalse(result['package_folder'])
+        self.assertFalse(bare.with_suffix('.nsp.report.json').exists())
 
 if __name__=='__main__':unittest.main(verbosity=2)

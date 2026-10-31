@@ -6,7 +6,9 @@ A portable Windows app that packages a complete, already-extracted ExeFS/RomFS s
 
 **Piracy is not supported.** Use only files and artwork you have lawfully obtained and are authorized to use. No games, game artwork, firmware or Nintendo keys are provided. Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo; game content belongs to its respective rights holders. This is an independent project, not affiliated with, sponsored by or endorsed by Nintendo. See [ownership and use notices](DISCLAIMER.md).
 
-> **Experimental compatibility:** a successful build verifies package integrity, not game boot or gameplay. Version 1.4.2 retains the `main.npdm` companion workaround introduced in 1.4.1. The checked PokeDinner/Eglantine builds require that file beside Switch 2 packages. Companion-free booting is not supported by that workaround, and this release does not fix the emulator's detection logic.
+> **Caution — experimental software:** set emulator memory to **12 GiB** before testing Switch 2 packages. Booting without an external `main.npdm` was reported in PokeDinner 2.0.0 with that setting. Other games/builds may differ. Verification checks package integrity, not booting or gameplay. The packager does not change emulator memory settings.
+
+A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\Switch2GamePackager\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
 
 Both output formats stream directly to their destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
 
@@ -17,13 +19,11 @@ Both output formats stream directly to their destination without an intermediate
 3. Click **Browse folder** and select your main game dump folder, or drag the folder into the window. Pasting a folder path and pressing Enter also works.
 4. Select the complete snapshot you want from the dropdown. The app reads its title ID from `main.npdm`.
 5. Edit the displayed game name/version if needed. Add, drop or paste artwork, then click **Crop icon** to position it. Choose **XCI** or **NSP** in Output and select a destination filename. Switching formats retains the destination folder/name and updates its extension.
-6. Leave **Verify after building** checked, then click **Build XCI** or **Build NSP**. Both perform the full integrity check and source-file comparison.
+6. Leave **Verify after building** checked. **Create package folder** beneath it is on by default: a folder named after the output file contains the package, a metadata companion and JSON verification report. Uncheck it to save only the selected XCI/NSP. Then click **Build XCI** or **Build NSP**.
 
-The app never overwrites an existing package and does not modify your source files. Cancellation removes the unfinished package. A JSON build/verification report is saved beside each completed file (`.xci.report.json` or `.nsp.report.json`). Allow roughly the input size plus 2% and 32 MB free disk space. Packages up to **32 GiB** are supported in this release.
+The app never overwrites an existing package and does not modify your source files. Cancellation removes the unfinished package. Verification works in both modes; it does not require saving a report. Allow roughly the input size plus 2% and 32 MB free disk space. Packages up to **32 GiB** are supported.
 
-**Keep `main.npdm` beside the XCI/NSP.** The checked PokeDinner/Eglantine fork reads this companion before opening the container to choose Switch 2's memory layout and clock. Without it, a valid package can launch in Switch 1 mode and exit or crash. The app copies the exact metadata from your own selected snapshot and records its hash. Keep each game/snapshot in its own output folder; do not mix these companions with Switch 1 games. The default destination now creates separate folders under `Packed/`. A different existing companion is refused instead of overwritten.
-
-For an older package from this app, copy `exefs/main.npdm` from the exact snapshot used to build it into the folder containing that game's XCI/NSP. Keep the original name `main.npdm`. Existing game bytes do not need rebuilding for this detection workaround. Use a separate folder if another, different `main.npdm` already exists.
+With **Create package folder** enabled, `D:\Packed\Game.xci` is saved as `D:\Packed\Game\Game.xci`, with `main.npdm` and `Game.xci.report.json` beside it. The companion is an optional workaround for the checked loader's early Switch 2 memory/clock detection. Keep each game/snapshot in a separate folder if using it; a conflicting companion is refused. The exact snapshot metadata is also embedded inside the package in both modes. An external companion is not always necessary: the 12 GiB setting allowed booting without it in the reported PokeDinner test.
 
 XCI uses a gamecard-style wrapper; NSP uses a downloadable-content package wrapper. Both preserve the same game payloads and selected artwork. NSP has slightly less wrapper overhead; it is not compressed and does not improve gameplay speed. These outputs are unsigned plaintext emulator repacks. NSP support does not make them authenticated installable retail-console packages. Actual loading depends on the emulator fork's plaintext-content support.
 
@@ -90,7 +90,7 @@ The GUI's export button saves another copy without overwriting anything. Setup r
 - Windows 10/11 x64; no administrator rights, Python installation, emulator installation, or network connection required.
 - The one-file EXE unpacks its bundled runtime into the Windows temporary directory at launch and cleans it up on normal exit.
 - No telemetry, upload or automatic downloading. Emulator setup runs only when explicitly selected; builds do not change emulator configuration.
-- Paths appear in your local JSON report. Review or remove reports before sharing them if you do not want to disclose local folder names.
+- When package-folder output is enabled, paths appear in its local JSON report. Review or remove reports before sharing them if you do not want to disclose local folder names.
 - This release is unsigned. No claim of Nintendo authentication or endorsement is made.
 
 ## Source and redistribution

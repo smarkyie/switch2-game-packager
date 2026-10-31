@@ -19,7 +19,7 @@ class InterfaceTests(unittest.TestCase):
             (p/'exefs/main.npdm').write_bytes(npdm);(p/'exefs/main').write_bytes(b'NSO0'+bytes(256))
             (p/'romfs/content.bin').write_bytes(bytes(range(256))*81)
         self.art=self.root/'cover.png';Image.new('RGB',(320,240),'#55aaff').save(self.art)
-        self.app=App();self.errors=[]
+        self.app=App(show_startup=False,preferences_path=self.root/'preferences.json');self.errors=[]
         self.app.report_callback_exception=lambda *args:self.errors.append(args)
         self.pump(.5)
     def tearDown(self):
@@ -55,12 +55,13 @@ class InterfaceTests(unittest.TestCase):
         app.set_art(self.art);app.title_text.set('Sample Custom Title');app.version_text.set('1.2')
         app.verify_check.invoke();self.assertFalse(app.verify.get())
         app.verify_check.invoke();self.assertTrue(app.verify.get())
+        self.assertTrue(app.package_folder.get());app.package_folder_check.invoke()
         out=self.root/'Built.xci';app.output.set(str(out));app.build_btn.invoke()
         self.assertTrue(app.busy);self.assertFalse(app.browse.enabled);self.assertTrue(app.cancel_btn.enabled)
         self.until(lambda:not app.busy,timeout=10)
         self.assertTrue(out.is_file());self.assertTrue(app.open_btn.enabled)
-        report=json.loads(out.with_suffix('.xci.report.json').read_text())
-        self.assertTrue(report['verified']);self.assertEqual(report['title'],'Sample Custom Title')
+        self.assertFalse(out.with_suffix('.xci.report.json').exists());self.assertFalse((out.parent/'main.npdm').exists())
+        self.assertEqual(app.last_output,out)
         app.notes();self.pump(.06)
         self.assertTrue(any(w.winfo_class()=='Toplevel' for w in app.winfo_children()))
         self.assertFalse(self.errors)
@@ -69,7 +70,10 @@ class InterfaceTests(unittest.TestCase):
         values=[];app.motion.to('test',0,1,.18,values.append);self.pump(.08)
         self.assertTrue(any(0<v<1 for v in values));self.pump(.18);self.assertAlmostEqual(values[-1],1)
         app.geometry('1010x780');self.pump(.1)
-        for widget in (app.verify_check,app.folder_entry,app.combo,app.format_combo,app.version_entry,app.clear_art_btn,app.crop_art_btn,app.paste_art_btn,app.build_btn,app.help_btn):
+        checkbox=app.package_folder_check;parent=checkbox.master
+        self.assertEqual(checkbox.winfo_height(),25)
+        self.assertLessEqual(checkbox.winfo_rooty()+checkbox.winfo_height(),parent.winfo_rooty()+parent.winfo_height())
+        for widget in (app.verify_check,app.package_folder_check,app.folder_entry,app.combo,app.format_combo,app.version_entry,app.clear_art_btn,app.crop_art_btn,app.paste_art_btn,app.build_btn,app.help_btn):
             self.assertTrue(widget.winfo_ismapped(),str(widget))
             self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),app.winfo_rooty()+app.winfo_height())
             self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),app.content_area.winfo_rooty()+app.content_area.winfo_height()) if widget not in (app.build_btn,app.help_btn) else None
@@ -86,12 +90,16 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(app.output.get(),str(out.with_suffix('.xci')))
         app.format_combo.current(1);app.format_combo.entry.event_generate('<<ComboboxSelected>>');self.pump(.04)
         self.assertEqual(app.output.get(),str(out));self.assertEqual(app.build_btn.text,'Build NSP')
+        self.assertTrue(app.package_folder.get())
         app.set_art(self.art);app.build_btn.invoke()
+        self.assertFalse(app.package_folder_check.enabled)
         self.assertEqual(str(app.format_combo.entry.cget('state')),'disabled')
         self.until(lambda:not app.busy,timeout=10)
-        self.assertTrue(out.is_file());self.assertEqual(app.status.get(),'NSP ready')
+        actual=out.parent/out.stem/out.name
+        self.assertTrue(actual.is_file());self.assertEqual(app.last_output,actual)
+        self.assertTrue(app.package_folder_check.enabled);self.assertEqual(app.status.get(),'NSP ready')
         self.assertEqual(str(app.format_combo.entry.cget('state')),'readonly')
-        report=json.loads(out.with_suffix('.nsp.report.json').read_text())
+        report=json.loads(actual.with_suffix('.nsp.report.json').read_text())
         self.assertEqual(report['output_format'],'NSP');self.assertTrue(report['verified'])
         self.assertFalse(self.errors)
 
@@ -116,6 +124,25 @@ class InterfaceTests(unittest.TestCase):
         app.folder_entry.entry.focus_force();self.pump(.02)
         with patch('app.ImageGrab.grabclipboard',return_value=None):
             self.assertIsNone(app.paste_art_shortcut())
+        self.assertFalse(self.errors)
+
+    def test_startup_caution_and_remembered_dismissal(self):
+        from startup_notice import should_show
+        app=self.app;preferences=app.preferences_path
+        app.show_startup_caution();self.pump(.08)
+        notice=app._startup_dialog
+        self.assertTrue(notice.winfo_exists());self.assertEqual(app.grab_current(),notice)
+        self.assertFalse(preferences.exists())
+        self.assertGreater(notice.winfo_height(),300)
+        self.assertLessEqual(notice.continue_button.winfo_rooty()+notice.continue_button.winfo_height(),notice.winfo_rooty()+notice.winfo_height())
+        notice.continue_button.invoke();self.pump(.03)
+        self.assertTrue(should_show(preferences))
+        app.show_startup_caution();self.pump(.03)
+        app._startup_dialog.dismiss_check.invoke();app._startup_dialog.continue_button.invoke();self.pump(.03)
+        self.assertFalse(should_show(preferences));app.show_startup_caution()
+        self.assertFalse(app._startup_dialog.winfo_exists());self.assertIsNone(app.grab_current())
+        preferences.write_text('{invalid json',encoding='utf-8')
+        self.assertTrue(should_show(preferences))
         self.assertFalse(self.errors)
 
     def test_explicit_emulator_setup_from_notes(self):

@@ -26,7 +26,7 @@ class PackagingTests(unittest.TestCase):
         out=self.root/'Example.xci';result=engine.build(snapshots[0],out,'Example 日本語','2.0',self.art)
         self.assertTrue(result['verified']);self.assertEqual(result['source_file_count'],4)
         self.assertEqual(result['title_id'],'0400111122220000');self.assertTrue(out.is_file())
-        self.assertTrue(out.with_suffix('.xci.report.json').is_file())
+        self.assertFalse(out.with_suffix('.xci.report.json').exists());self.assertIsNone(result['switch2_companion'])
         with out.open('rb') as f, mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ) as mm:
             buf=verify.Region(mm);top=verify.partition(buf,verify.u('Q',buf,0x130)[0])
             contents=verify.partition(top['secure'])

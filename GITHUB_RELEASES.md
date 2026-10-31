@@ -6,10 +6,10 @@ Downloads are available on the repository's [Releases page](https://github.com/s
 
 1. Commit changes to `main`, update `VERSION` in `src/engine.py`, and add a matching entry in `CHANGELOG.md`.
 2. Open **Actions → Build and release Windows app → Run workflow**, select `main`, and run it. Alternatively, push a matching version tag.
-3. The workflow runs the synthetic tests, builds the portable EXE, and checks PNG/WEBP/ICO/AVIF artwork with both XCI and NSP. It then assembles the application, source, notices and checksums.
+3. The workflow runs the synthetic tests, builds the portable EXE, and checks PNG/WEBP/ICO/AVIF artwork with both XCI and NSP in single-file and package-folder modes. It then assembles the application, source, notices and checksums.
 4. A successful job publishes a release tagged at its source commit. Existing releases are not overwritten; use a new version for updated downloads.
 
-Release notes include lawful-use and ownership notices and the current companion-file limitation. Keep these notices and the required dependency licenses with redistributed copies.
+Release notes include lawful-use and ownership notices and the current memory-setting guidance and optional companion workaround. Keep these notices and the required dependency licenses with redistributed copies.
 
 ## Release contents
 

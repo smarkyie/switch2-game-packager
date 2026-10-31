@@ -20,4 +20,4 @@ The [MIT license](LICENSE.txt) covers this project's original application code. 
 
 The software is provided as is, without warranty, under its license. Packaging and integrity verification do not guarantee that a game boots, plays correctly or works with a particular emulator. Outputs are unsigned plaintext emulator repacks, not authenticated retail-console packages.
 
-The checked PokeDinner/Eglantine builds require an external `main.npdm` companion for early Switch 2 detection. Version 1.4.2 retains that workaround; it does not provide companion-free compatibility. See the [README](README.md) for setup and limitations.
+Some PokeDinner/Eglantine builds can exit on boot with a 4 GiB memory setting. Select 12 GiB before testing Switch 2 packages. A PokeDinner 2.0.0 boot without an external metadata companion was reported with this setting; this does not establish universal compatibility. The packager does not change emulator memory settings. An optional metadata companion is available through package-folder output. See the [README](README.md) for setup and limitations.

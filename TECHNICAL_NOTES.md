@@ -2,7 +2,11 @@
 
 ## Switch 2 launch compatibility
 
-The checked PokeDinner 2.0.0 loader performs early Switch 2 detection using a `main.npdm` in the opened file's containing directory, before parsing the XCI/NSP's embedded ExeFS. Without that companion it selects the Switch 1 clock and memory layout even though the embedded executable is Switch 2. Version 1.4.1 copies the exact selected snapshot NPDM beside the package without modifying the embedded program modules. A different existing file is refused. The companion is atomically created after verification; pre-existing and concurrently created files are preserved. Use a separate folder per game/snapshot and retain the companion when moving the package.
+The checked PokeDinner 2.0.0 loader performs early Switch 2 detection using a `main.npdm` in the opened file's containing directory, before parsing the container's embedded ExeFS. With default settings and no companion, it selected the Switch 1 memory layout and clock and boot failures were observed. A user subsequently reported booting without the companion after selecting 12 GiB RAM; the earlier manual-test profile was also set to 12 GiB. Memory configuration can therefore bypass the observed boot failure without changing the embedded metadata. Compatibility with every game/build and correct runtime timing are not established by that boot report.
+
+Version 1.4.3 enables package-folder output by default. Unchecking the option saves only the XCI/NSP. Package-folder output copies the exact snapshot NPDM beside the package and records its hash in a local JSON report. It remains an early-detection workaround, rather than a universal requirement. Conflicting or concurrently created companions are preserved. Verification remains enabled independently of whether a report is written.
+
+A GUI-only startup caution describes the 12 GiB setting and experimental status. Dismissal is opt-in, versioned by notice content and stored in the application's local preferences. No emulator configuration is changed by opening or dismissing the caution.
 
 Generated NACP uses ApparentPlatform at `0x3217` (1 for Switch 2) and application-error prefix at `0x3214` (3 for Switch 2). TitlesDataFormat is read at `0x3215`; compressed title bytes are preserved. Earlier releases used incorrect `0x323D`/`0x323F` offsets. The loader's early NPDM check was the decisive launch failure in the checked build.
 
