@@ -1,18 +1,18 @@
-# GitHub releases
+# Publishing releases
 
-The canonical source is the private repository `smarkyie/switch2-game-packager`. Downloads are under its **Releases** page; only the owner and invited collaborators can access them. This repository does not grant access to any other repository or account data.
+Downloads are available on the repository's [Releases page](https://github.com/smarkyie/switch2-game-packager/releases). Each release includes a portable Windows ZIP, a source ZIP and SHA-256 checksums.
 
-## Publish the next version
+## Publish a version
 
-1. Commit the application changes to `main`, update `VERSION` in `src/engine.py`, and add a matching section in `CHANGELOG.md`.
-2. Open **Actions → Build and release Windows app → Run workflow**, choose `main`, and run it. Alternatively, push a matching version tag such as `v1.4.1`.
-3. GitHub runs all synthetic tests on Windows, builds the portable EXE, smoke-tests PNG/WEBP/ICO/AVIF artwork with both XCI and NSP, and assembles allowlisted source/portable ZIPs plus checksums.
-4. The job creates a release with a tag pointing to the source commit. Existing releases are not overwritten. Confirm the job is green before sharing the private release link.
+1. Commit changes to `main`, update `VERSION` in `src/engine.py`, and add a matching entry in `CHANGELOG.md`.
+2. Open **Actions → Build and release Windows app → Run workflow**, select `main`, and run it. Alternatively, push a matching version tag.
+3. The workflow runs the synthetic tests, builds the portable EXE, and checks PNG/WEBP/ICO/AVIF artwork with both XCI and NSP. It then assembles the application, source, notices and checksums.
+4. A successful job publishes a release tagged at its source commit. Existing releases are not overwritten; use a new version for updated downloads.
 
-Builds run on GitHub's Windows runner. No personal access token or persistent new credential is required: the job uses its short-lived repository token. Workflow write access is restricted to repository contents for publishing its own release. Private repositories use the account's GitHub Actions allowance; this project does not change billing or spending settings.
+Release notes include lawful-use and ownership notices and the current companion-file limitation. Keep these notices and the required dependency licenses with redistributed copies.
 
-## Local storage
+## Release contents
 
-Keep one small source checkout for editing. Release downloads live on GitHub; there is no need to retain separate local copies for every version. Building locally remains possible with `BUILD.md`, and generated `build/`, `dist/`, `release/` and `test-work/` folders are ignored by Git.
+`package_release.py` selects application files explicitly. Game dumps, generated game packages, local build reports, game artwork, firmware, retail keys and emulator binaries are excluded. Review the selected files and current compatibility notes before publishing.
 
-Game dumps, generated XCI/NSP/NCA files, reports containing local paths, retail keys, firmware and downloaded game artwork are excluded. The release script explicitly selects application files rather than archiving the whole workspace. Generated compatibility entries are local placeholders and cannot decrypt retail content.
+Builds run on GitHub's Windows runner using the workflow's temporary repository token. Generated `build/`, `dist/`, `release/` and `test-work/` directories are ignored by Git. See [BUILD.md](BUILD.md) for local builds.

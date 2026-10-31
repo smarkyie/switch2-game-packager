@@ -1,13 +1,21 @@
 # Release notes
 
+## 1.4.2 — 2026-10-31
+
+- Add lawful-use, anti-piracy, Nintendo ownership and non-affiliation notices to the README and release downloads.
+- Simplify download, build and publishing documentation; remove access-specific wording and internal development details.
+- Clarify that verification checks package integrity and does not guarantee booting or gameplay. Keep the external `main.npdm` requirement prominent for the checked PokeDinner/Eglantine builds.
+- Include `DISCLAIMER.md` in portable and source archives and add concise notices to generated release notes.
+- Documentation and release-packaging update; game conversion behavior is unchanged from 1.4.1.
+
 ## 1.4.1 — 2026-10-31
 
 - Emit the snapshot's exact `main.npdm` beside XCI and NSP so early detection in the checked PokeDinner/Eglantine loader selects Switch 2's memory layout and clock.
 - Give each game/snapshot a separate default output folder; refuse a different existing companion and preserve files created concurrently. Record the companion hash and remind users to keep it beside the package.
 - Correct generated NACP platform/error-prefix offsets, and read TitlesDataFormat at the documented offset so compressed title data is preserved.
 - Add explicit **Set up emulator keys folder…** under Notes & compatibility for missing plaintext placeholders, with preservation of real keys/existing entries, backups and validation.
-- Add metadata, companion-file, concurrent-file preservation and setup regression tests. Checked real Pokopia NSP and Mario Kart World XCI rendering after compatibility setup.
-- Prepare private GitHub source hosting and Windows build/release automation, excluding game content and local build caches.
+- Add regression tests for metadata, companion files, concurrent-file preservation and compatibility setup. Limited rendering checks used the companion workaround; standalone booting was not established.
+- Add GitHub Actions builds and releases, excluding game content and local build caches.
 
 ## 1.4.0 — 2026-10-31
 

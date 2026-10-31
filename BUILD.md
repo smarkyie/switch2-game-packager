@@ -16,7 +16,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean Packager.spec
 ```
 
-The EXE is created under `dist/`. Keep the root license, notices, and `licenses/` directory with any redistributed release. Dependency version pinning makes the build inputs identifiable; timestamps, Python installation details and toolchain/runtime differences mean binaries are not claimed to be bit-for-bit reproducible.
+The EXE is created under `dist/`. Keep `DISCLAIMER.md`, the root license, notices, and `licenses/` directory with any redistributed release. Dependency version pinning makes the build inputs identifiable; timestamps, Python installation details and toolchain/runtime differences mean binaries are not claimed to be bit-for-bit reproducible.
 
 Run the GUI from source:
 

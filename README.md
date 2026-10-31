@@ -1,12 +1,14 @@
-# Switch 2 Game Packager 1.4.1
+# Switch 2 Game Packager
 
-[Download the latest release](https://github.com/smarkyie/switch2-game-packager/releases/latest) · [Release workflow](GITHUB_RELEASES.md)
+[Download](https://github.com/smarkyie/switch2-game-packager/releases/latest) · [Build from source](BUILD.md) · [Changelog](CHANGELOG.md) · [Disclaimer](DISCLAIMER.md)
 
-This repository and its downloads are private. Sign in as the owner or an invited collaborator to access them. Future portable builds are published through GitHub Actions rather than retained as separate local release folders.
+A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext XCI or NSP for compatible emulators. Choose a folder, add your own artwork, select the output format, and build.
 
-A portable Windows app that packages a complete, already-extracted ExeFS/RomFS game snapshot into a plaintext XCI or NSP for compatible emulators. Choose a game folder, choose your own artwork, select the output format, and build. The executable keeps its existing filename, `Switch2-XCI-Packager.exe`.
+**Piracy is not supported.** Use only files and artwork you have lawfully obtained and are authorized to use. No games, game artwork, firmware or Nintendo keys are provided. Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo; game content belongs to its respective rights holders. This is an independent project, not affiliated with, sponsored by or endorsed by Nintendo. See [ownership and use notices](DISCLAIMER.md).
 
-Version 1.4.1 fixes Switch 2 launch compatibility by placing an exact `main.npdm` companion beside either package, corrects control-metadata offsets, and adds explicit emulator compatibility setup. Both formats stream to their destination without an intermediate container. All existing UI/artwork features, full verification and file-processing optimizations remain available.
+> **Experimental compatibility:** a successful build verifies package integrity, not game boot or gameplay. Version 1.4.2 retains the `main.npdm` companion workaround introduced in 1.4.1. The checked PokeDinner/Eglantine builds require that file beside Switch 2 packages. Companion-free booting is not supported by that workaround, and this release does not fix the emulator's detection logic.
+
+Both output formats stream directly to their destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
 
 ## Quick start
 

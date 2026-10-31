@@ -9,7 +9,7 @@ sys.path.insert(0,str(ROOT/'src'))
 import engine
 
 DOCS=('README.md','BUILD.md','TECHNICAL_NOTES.md','PERFORMANCE_NOTES.md','CHANGELOG.md',
-      'LICENSE.txt','THIRD_PARTY_NOTICES.md','RELEASE_VALIDATION.md','GITHUB_RELEASES.md')
+      'LICENSE.txt','THIRD_PARTY_NOTICES.md','RELEASE_VALIDATION.md','GITHUB_RELEASES.md','DISCLAIMER.md')
 SOURCE=('Packager.spec','app.ico','requirements-build.txt','package_release.py','frozen_smoke.py',
         'test_engine.py','test_ui.py','test_artwork.py','test_performance_safety.py','test_nsp.py','test_compatibility.py','.gitignore')
 
@@ -30,7 +30,14 @@ def notes():
     return ('# Switch 2 Game Packager '+engine.VERSION+'\n\n'+match.group(1).strip()+
             '\n\nPortable Windows x64 build. Extract the complete Windows ZIP and run '
             '`Switch2-XCI-Packager.exe`. Source, licenses and build notes are included. '
-            'No game data, artwork, firmware or retail keys are included.\n')
+            'No game data, artwork, firmware or retail keys are included.\n\n'
+            '**Compatibility:** the checked PokeDinner/Eglantine builds require the generated '
+            '`main.npdm` beside each Switch 2 XCI/NSP. This is an experimental workaround, '
+            'not companion-free support or a guarantee of game boot/gameplay.\n\n'
+            '**Piracy is not supported.** Use only lawfully obtained content you are authorized '
+            'to use. Nintendo names and related marks belong to Nintendo; game content belongs '
+            'to its respective rights holders. This independent project is not affiliated with '
+            'or endorsed by Nintendo. See `DISCLAIMER.md` in the downloads for full notices.\n')
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

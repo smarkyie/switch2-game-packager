@@ -1,4 +1,4 @@
-# Technical notes — 1.4.1
+# Technical notes
 
 ## Switch 2 launch compatibility
 
