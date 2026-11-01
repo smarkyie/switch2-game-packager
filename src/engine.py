@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from PIL import Image, ImageOps
-import hashlib, io, json, mmap, os, re, shutil, stat, struct, tempfile, time, uuid
+import errno, hashlib, io, json, mmap, os, re, shutil, stat, struct, tempfile, time, uuid
 import container_format as fmt
 import verify_format as verifier
 from artwork import artwork_bytes, ArtworkSelection
@@ -65,7 +65,12 @@ def find_snapshots(folder):
                 found.append(Snapshot(path,tid,ver,label,title,nacp))
             except (OSError,ValueError) as e: invalid.append(f'{path}: {e}')
         if depth==4:return
-        for p in sorted(path.iterdir()):
+        try:children=sorted(path.iterdir())
+        except OSError as e:
+            # e.g. protected system folders when a drive root is selected
+            if depth==0:raise
+            invalid.append(f'{path}: {e}');return
+        for p in children:
             if p.name.lower() in ('romfs','exefs','control'):continue
             if p.name.lower() in ('dlc','aoc','addons','add_on_content'):
                 if p.is_dir():skipped.append(p)
@@ -176,6 +181,22 @@ def _verify_region(buf,snapshot,inventory,notify,source_hashes=None):
     cfiles=verifier.romfs_files(control[2][0][1]);assert 'control.nacp' in cfiles
     return checked
 
+def rename_no_replace(source,target):
+    """Move source to target, raising FileExistsError instead of replacing target.
+
+    Windows rename already refuses existing destinations. POSIX rename silently
+    replaces them, so a hard link is used as an atomic exclusive create there.
+    """
+    source,target=Path(source),Path(target)
+    if os.name=='nt':source.rename(target);return
+    try:os.link(source,target)
+    except FileExistsError:raise
+    except OSError:
+        # Filesystems without hard links (e.g. FAT/exFAT): best-effort check.
+        if os.path.lexists(target):raise FileExistsError(errno.EEXIST,'File exists',str(target))
+        source.rename(target);return
+    source.unlink()
+
 def build(snapshot,output,title,display_version,artwork_path=None,verify=True,notify=lambda *a:None,cancel=None,output_format=None,package_folder=False):
     started=time.perf_counter();timings={};tick=started
     output=Path(output).resolve();root=snapshot.root.resolve()
@@ -273,14 +294,14 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
                     with companion_temp.open('xb') as f:
                         f.write(companion_data);f.flush();os.fsync(f.fileno())
                     try:
-                        companion_temp.rename(companion);companion_created=True
+                        rename_no_replace(companion_temp,companion);companion_created=True
                     except FileExistsError:
                         if companion.read_bytes()!=companion_data:
                             raise ValueError('Output main.npdm changed during packaging. Choose a separate output folder.')
                 finally:
                     if companion_temp.exists():companion_temp.unlink()
-            # Windows rename refuses existing destinations, including files created during the build.
-            temp_path.rename(output);committed=True
+            # Never replace a destination created during the build (on any OS).
+            rename_no_replace(temp_path,output);committed=True
             report={'app':'Switch 2 Game Packager','version':VERSION,'title':title,'title_id':f'{snapshot.title_id:016X}',
                     'snapshot':str(root),'snapshot_version':snapshot.version,'display_version':display_version,
                     'size':result.size,'sha256':h.hexdigest(),'original_control_preserved':preserved,
