@@ -43,4 +43,4 @@ reduced performance. Integrity checks do not guarantee booting, gameplay or FPS.
 Windows x64 is the only shipped binary target. A clean Windows installation
 without Python and every graphics driver/emulator configuration have not been
 tested. This is experimental software with limited real-world testing; please
-[report reproducible problems](https://github.com/smarkyie/switch2-game-packager/issues/new).
+[report reproducible problems](https://github.com/smarkyie/NSP-Box/issues/new).

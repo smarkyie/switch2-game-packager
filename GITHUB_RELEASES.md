@@ -1,6 +1,6 @@
 # Publishing releases
 
-Downloads are available on the repository's [Releases page](https://github.com/smarkyie/switch2-game-packager/releases). Each release includes a portable Windows ZIP, a source ZIP and SHA-256 checksums.
+Downloads are available on the repository's [Releases page](https://github.com/smarkyie/NSP-Box/releases). Each release includes a portable Windows ZIP, a source ZIP and SHA-256 checksums.
 
 ## Publish a version
 

@@ -1,10 +1,10 @@
-# NSP Box
+# NSP Box: A Switch 2 Game Packager
 
-[Download](https://github.com/smarkyie/switch2-game-packager/releases/latest) · [Build from source](BUILD.md) · [Changelog](CHANGELOG.md) · [Disclaimer](DISCLAIMER.md)
+[Download](https://github.com/smarkyie/NSP-Box/releases/latest) · [Build from source](BUILD.md) · [Changelog](CHANGELOG.md) · [Disclaimer](DISCLAIMER.md)
 
 A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext NSP for compatible emulators. Choose a folder, add your own artwork, and build an NSP.
 
-**NSP Box 3.0** It adds the new app/UI icons, a subtle animated blue/indigo background and smoother transitions. It retains the NSP-only Game/DLC workflows and the Windows drag-and-drop fix for [issue #2](https://github.com/smarkyie/switch2-game-packager/issues/2). Native drop events queue paths for Tk to handle safely during its normal event loop.
+**NSP Box 3.0** adds the new app/UI icons, a subtle animated blue/indigo background and smoother transitions. It retains the NSP-only Game/DLC workflows and the Windows drag-and-drop fix for [issue #2](https://github.com/smarkyie/NSP-Box/issues/2). Native drop events queue paths for Tk to handle safely during its normal event loop.
 
 Use **Game** for complete ExeFS/RomFS snapshots and **DLC** for separate RomFS-only add-ons. A user installed the Bananza DLC NSP and confirmed that the game recognized it in PokeDinner 2.0.0. This is one successful user test, not universal DLC compatibility. See [DLC instructions](DLC.md).
 
@@ -20,7 +20,7 @@ A startup caution explains this before using the GUI. **Don't show this again** 
 
 NSP output streams directly to its destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
 
-**Experimental build with limited real-world testing.** If anything goes wrong, [open an issue](https://github.com/smarkyie/switch2-game-packager/issues/new) with your app/emulator versions, reproduction steps and error messages. Do not upload game files, keys or personal paths.
+**Experimental build with limited real-world testing.** If anything goes wrong, [open an issue](https://github.com/smarkyie/NSP-Box/issues/new) with your app/emulator versions, reproduction steps and error messages. Do not upload game files, keys or personal paths.
 
 ## Quick start
 
@@ -114,7 +114,7 @@ The GUI's export button saves another copy without overwriting anything. Setup r
 
 ## Source and redistribution
 
-Full application source, icon assets and synthetic tests are available in the separate source ZIP on the [release page](https://github.com/smarkyie/switch2-game-packager/releases/latest). The portable ZIP contains the app, documentation and required license notices; it does not duplicate the source. In this repository, application modules are under `src/` and tests are at the root. The original application code is released under the MIT license in `LICENSE.txt`; third-party components retain their own licenses under `licenses/` and `THIRD_PARTY_NOTICES.md`.
+Full application source, icon assets and synthetic tests are available in the separate source ZIP on the [release page](https://github.com/smarkyie/NSP-Box/releases/latest). The portable ZIP contains the app, documentation and required license notices; it does not duplicate the source. In this repository, application modules are under `src/` and tests are at the root. The original application code is released under the MIT license in `LICENSE.txt`; third-party components retain their own licenses under `licenses/` and `THIRD_PARTY_NOTICES.md`.
 
 You may redistribute the app and source with the required license notices. The software was developed with AI assistance. This package includes no Nintendo code, game data, game cover artwork, console firmware, tickets, certificates, or Nintendo cryptographic keys. Use your own extracted data and artwork; redistribution rights for input/output content are separate from the app's license.
 

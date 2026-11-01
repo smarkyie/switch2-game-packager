@@ -18,7 +18,7 @@ The original Windows procedure called root.after directly while handling WM_DROP
 
 The fixed procedure only queries the HDROP paths, queues Python values and releases the handle with DragFinish. It does not invoke Tcl/Tk. A pre-scheduled Tk timer drains the queue and calls the application's normal drop handler. Shutdown cancels the timer before restoring the original window procedure. Tests exercise real mainloop with repeated PNG/WEBP/folder drops and Unicode paths; the frozen EXE is also checked using native drop messages addressed only to its own child process.
 
-References: [CPython _tkinter](https://github.com/python/cpython/blob/v3.11.9/Modules/_tkinter.c), [Tkinter threading model](https://docs.python.org/3/library/tkinter.html#threading-model), [WM_DROPFILES](https://learn.microsoft.com/en-us/windows/win32/shell/wm-dropfiles), [reported issue](https://github.com/smarkyie/switch2-game-packager/issues/2).
+References: [CPython _tkinter](https://github.com/python/cpython/blob/v3.11.9/Modules/_tkinter.c), [Tkinter threading model](https://docs.python.org/3/library/tkinter.html#threading-model), [WM_DROPFILES](https://learn.microsoft.com/en-us/windows/win32/shell/wm-dropfiles), [reported issue](https://github.com/smarkyie/NSP-Box/issues/2).
 
 ## Emulator compatibility and privacy
 
