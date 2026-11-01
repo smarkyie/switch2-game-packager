@@ -8,7 +8,7 @@ import verify_format as verifier
 from artwork import artwork_bytes, ArtworkSelection
 from compatibility import placeholder_text
 
-VERSION = '2.0.0'
+VERSION = '3.0.0'
 
 @dataclass
 class Snapshot:
@@ -127,13 +127,8 @@ def verify_image(path,snapshot,inventory,notify,cancel,source_hashes=None):
             return _verify_region(verifier.Region(mm),snapshot,inventory,notify,source_hashes)
 
 def _verify_region(buf,snapshot,inventory,notify,source_hashes=None):
-    if bytes(buf[:4])==b'PFS0':
-        ncas=verifier.partition(buf);distribution=0
-    else:
-        assert bytes(buf[0x100:0x104])==b'HEAD','XCI/NSP header'
-        off,hs=verifier.u('QQ',buf,0x130)
-        assert verifier.digest(buf[off:off+hs])==bytes(buf[0x140:0x160]),'XCI root hash'
-        top=verifier.partition(buf,off);ncas=verifier.partition(top['secure']);distribution=1
+    assert bytes(buf[:4])==b'PFS0','NSP/PFS0 header'
+    ncas=verifier.partition(buf);distribution=0
     parsed={};nca_hashes={}
     for name,data in ncas.items():
         fmt.checkpoint()
@@ -183,11 +178,11 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
     if not title.strip():raise ValueError('Enter a game title.')
     if len(display_version.encode('utf-8'))>15:raise ValueError('Display version must fit within 15 UTF-8 bytes.')
     kind=(output_format or output.suffix.lstrip('.')).lower()
-    if kind not in ('xci','nsp'):raise ValueError('Choose XCI or NSP output.')
+    if kind!='nsp':raise ValueError('NSP Box supports NSP output only.')
     if output.suffix.lower()!='.'+kind:raise ValueError(f'Output filename must end in .{kind} for {kind.upper()} output.')
-    distribution=0 if kind=='nsp' else 1
+    distribution=0
     if any(output.is_relative_to(root/p) for p in ('exefs','romfs')):
-        raise ValueError('Save the XCI outside the source exefs and romfs folders.')
+        raise ValueError('Save the NSP outside the source exefs and romfs folders.')
     if output.exists():raise FileExistsError('An output with that name already exists. Choose another filename.')
     if read_title_id(root/'exefs/main.npdm')!=snapshot.title_id:raise ValueError('Source title ID changed. Scan the folder again.')
     companion=output.parent/'main.npdm' if package_folder and snapshot.title_id>>56==4 else None
@@ -203,7 +198,7 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
     timings['source_scan']=time.perf_counter()-tick;tick=time.perf_counter()
     output.parent.mkdir(parents=True,exist_ok=True)
     estimate=int(sum(v[0] for v in inventory.values())*1.02)+32*1024*1024
-    if shutil.disk_usage(output.parent).free<estimate:raise ValueError('Not enough free disk space for this XCI.')
+    if shutil.disk_usage(output.parent).free<estimate:raise ValueError('Not enough free disk space for this NSP.')
     art=artwork_bytes(artwork_path)
     notify('Building RomFS file tables',2)
     source_manifest=[];rblob=fmt.romfs(root/'romfs',source_manifest,
@@ -213,7 +208,7 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
     phase[:]=[2,22,'Building RomFS integrity tree'];notify(phase[2],2)
     program=fmt.nca([fmt.pfs_section(exblob),fmt.romfs_section(rblob)],snapshot.title_id,0,distribution)
     timings['filesystems_and_integrity_tree']=time.perf_counter()-tick;tick=time.perf_counter()
-    with tempfile.TemporaryDirectory(prefix='xci-control-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='nsp-box-control-') as tmp:
         entries,preserved=control_data(snapshot,title,display_version,art)
         for name,data in entries:(Path(tmp)/name).write_bytes(data)
         phase[:]=[22,23,'Preparing artwork and metadata'];notify(phase[2],22)
@@ -228,23 +223,7 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
         meta=fmt.nca([fmt.pfs_section(fmt.filesystem([(f'Application_{snapshot.title_id:016x}.cnmt',bytes(cnmt))]))],snapshot.title_id,1,distribution)
         entries.append((meta.digest()[:16].hex()+'.cnmt.nca',meta))
         timings['metadata_and_content_hashing']=time.perf_counter()-tick;tick=time.perf_counter()
-        if kind=='nsp':
-            # Stream the same NCA blobs straight into PFS0: no temporary XCI,
-            # second container copy, or additional game-content hashing pass.
-            result=fmt.filesystem(entries)
-        else:
-            empty=fmt.filesystem([],True);secure=fmt.filesystem(entries,True)
-            outer=fmt.filesystem([('update',empty),('normal',empty),('secure',secure)],True)
-            root_size=0x200;size=0xf000+outer.size;hdr=bytearray(0xf000);hdr[0x100:0x104]=b'HEAD'
-            secure_off=0xf000+root_size+empty.size*2
-            struct.pack_into('<II',hdr,0x104,secure_off//512,0xffffffff)
-            # Gamecard capacity is a header hint; the image is trimmed to real data size.
-            capacities=[(1<<30,0xfa),(2<<30,0xf8),(4<<30,0xf0),(8<<30,0xe0),(16<<30,0xe1),(32<<30,0xe2)]
-            if size>32<<30:raise ValueError('This release supports XCI images up to 32 GiB; larger card headers are not implemented.')
-            hdr[0x10d]=next(code for cap,code in capacities if size<=cap)
-            struct.pack_into('<Q',hdr,0x118,size//512-1);struct.pack_into('<QQ',hdr,0x130,0xf000,root_size)
-            hdr[0x140:0x160]=fmt.sha(outer.read_head(root_size));result=fmt.Blob(hdr,outer)
-        if result.size>32<<30:raise ValueError('This release supports packages up to 32 GiB.')
+        result=fmt.package(entries,kind)
         temp_path=output.parent/(output.name+'.'+uuid.uuid4().hex[:10]+'.partial')
         committed=False;companion_created=False
         try:
@@ -281,7 +260,7 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
                     if companion_temp.exists():companion_temp.unlink()
             # Windows rename refuses existing destinations, including files created during the build.
             temp_path.rename(output);committed=True
-            report={'app':'Switch 2 Game Packager','version':VERSION,'title':title,'title_id':f'{snapshot.title_id:016X}',
+            report={'app':'NSP Box','version':VERSION,'title':title,'title_id':f'{snapshot.title_id:016X}',
                     'snapshot':str(root),'snapshot_version':snapshot.version,'display_version':display_version,
                     'size':result.size,'sha256':h.hexdigest(),'original_control_preserved':preserved,
                     'source_file_count':len(inventory),'verified':verify,'files':checked,

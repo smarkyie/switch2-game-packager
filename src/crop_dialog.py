@@ -50,7 +50,7 @@ class CropDialog(tk.Toplevel):
         aside=tk.Frame(body,bg=BG,width=190);aside.pack(side='right',fill='y',padx=(18,0));aside.pack_propagate(False)
         tk.Label(aside,text='ICON PREVIEW',bg=BG,fg=MUTED,font=ui_font(9,True)).pack(anchor='w',pady=(10,13))
         self.thumbnail=tk.Label(aside,bg=FIELD,width=180,height=180);self.thumbnail.pack()
-        tk.Label(aside,text='256 × 256 pixels\nJPEG icon inside the XCI',bg=BG,fg=MUTED,font=ui_font(10),justify='left').pack(anchor='w',pady=15)
+        tk.Label(aside,text='256 × 256 pixels\nJPEG icon inside the NSP',bg=BG,fg=MUTED,font=ui_font(10),justify='left').pack(anchor='w',pady=15)
         self.canvas=tk.Canvas(body,bg=FIELD,bd=0,highlightthickness=0,cursor='fleur');self.canvas.pack(side='left',fill='both',expand=True)
         self.canvas.bind('<Configure>',lambda e:self.schedule_render());self.canvas.bind('<ButtonPress-1>',self.begin_drag)
         self.canvas.bind('<B1-Motion>',self.drag);self.canvas.bind('<ButtonRelease-1>',lambda e:setattr(self,'_drag',None))
