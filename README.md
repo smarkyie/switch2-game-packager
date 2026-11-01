@@ -1,41 +1,47 @@
-# Switch 2 Game Packager
+# NSP Box
 
 [Download](https://github.com/smarkyie/switch2-game-packager/releases/latest) · [Build from source](BUILD.md) · [Changelog](CHANGELOG.md) · [Disclaimer](DISCLAIMER.md)
 
-A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext XCI or NSP for compatible emulators. Choose a folder, add your own artwork, select the output format, and build.
+A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext NSP for compatible emulators. Choose a folder, add your own artwork, and build an NSP.
 
-**Version 2.0 adds a reversible Emulator patch panel.** Compatible Windows x64 Eglantine/PokeDinner builds can read the Switch 2 metadata already inside your XCI/NSP, so **a separate `main.npdm` beside the game is no longer needed after applying the patch and restarting the emulator**. For a single-file output, uncheck **Create package folder**. See [supported builds, installation and removal](EMULATOR_PATCH.md). This release provides Windows x64 downloads only; no Linux build is included.
+**NSP Box 3.0** It adds the new app/UI icons, a subtle animated blue/indigo background and smoother transitions. It retains the NSP-only Game/DLC workflows and the Windows drag-and-drop fix for [issue #2](https://github.com/smarkyie/switch2-game-packager/issues/2). Native drop events queue paths for Tk to handle safely during its normal event loop.
+
+Use **Game** for complete ExeFS/RomFS snapshots and **DLC** for separate RomFS-only add-ons. A user installed the Bananza DLC NSP and confirmed that the game recognized it in PokeDinner 2.0.0. This is one successful user test, not universal DLC compatibility. See [DLC instructions](DLC.md).
+
+The reversible **Emulator patch** panel now lists its supported Windows x64 targets: Eglantine nx2 98/96, AMD Experimental 77-2 (build-99), and PokeDinner 2.1.0a/2.0.0. Standard/PGO and GUI/CLI variants are identified explicitly. Compatible Windows x64 Eglantine/PokeDinner builds read the metadata inside an NSP, so a separate `main.npdm` beside the game is unnecessary after applying the patch and restarting. See [patch installation, removal and limits](EMULATOR_PATCH.md). Windows x64 downloads only; no Linux build is included.
 
 **Piracy is not supported.** Use only files and artwork you have lawfully obtained and are authorized to use. No games, game artwork, firmware or Nintendo keys are provided. Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo; game content belongs to its respective rights holders. This is an independent project, not affiliated with, sponsored by or endorsed by Nintendo. See [ownership and use notices](DISCLAIMER.md).
 
 > **Caution — experimental software:** set emulator memory to **12 GiB** before testing Switch 2 packages. The app does not change this setting. The patch is optional and only applies to recognized compatible code; it cannot add Switch 2 emulation to an unsupported emulator. Verification checks package integrity, not booting or gameplay.
 
-A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\Switch2GamePackager\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
+A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\NSPBox\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
 
 **Without the emulator patch**, retain the exact game's external `main.npdm` in its own package folder. Selecting 12 GiB alone can boot with Switch 1 timing and reduced performance. The corrected patch matches external-NPDM startup timing in the checked builds; equal FPS across all games/builds is not guaranteed.
 
-Both output formats stream directly to their destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
+NSP output streams directly to its destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
+
+**Experimental build with limited real-world testing.** If anything goes wrong, [open an issue](https://github.com/smarkyie/switch2-game-packager/issues/new) with your app/emulator versions, reproduction steps and error messages. Do not upload game files, keys or personal paths.
 
 ## Quick start
 
 1. Extract the entire ZIP to a writable folder.
-2. Open `Switch2-XCI-Packager.exe`. Python is bundled; installation is not required.
+2. Open `NSP-Box.exe`. Python is bundled; installation is not required.
 3. Click **Browse folder** and select your main game dump folder, or drag the folder into the window. Pasting a folder path and pressing Enter also works.
 4. Select the complete snapshot you want from the dropdown. The app reads its title ID from `main.npdm`.
-5. Edit the displayed game name/version if needed. Add, drop or paste artwork, then click **Crop icon** to position it. Choose **XCI** or **NSP** in Output and select a destination filename. Switching formats retains the destination folder/name and updates its extension.
-6. Leave **Verify after building** checked. **Create package folder** beneath it is on by default: a folder named after the output file contains the package, a metadata companion and JSON verification report. Uncheck it to save only the selected XCI/NSP. Then click **Build XCI** or **Build NSP**.
+5. Edit the displayed game name/version if needed. Add, drop or paste artwork, then click **Crop icon** to position it. Select an NSP destination filename in Output.
+6. Leave **Verify after building** checked. **Create package folder** beneath it is on by default: a folder named after the output file contains the package, a metadata companion and JSON verification report. Uncheck it to save only the selected NSP. Then click **Build NSP**.
 
 The app never overwrites an existing package and does not modify your source files. Cancellation removes the unfinished package. Verification works in both modes; it does not require saving a report. Allow roughly the input size plus 2% and 32 MB free disk space. Packages up to **32 GiB** are supported.
 
-With **Create package folder** enabled, `D:\Packed\Game.xci` is saved as `D:\Packed\Game\Game.xci`, with `main.npdm` and `Game.xci.report.json` beside it. The companion is an optional workaround for the checked loader's early Switch 2 memory/clock detection. Keep each game/snapshot in a separate folder if using it; a conflicting companion is refused. The exact snapshot metadata is also embedded inside the package in both modes. After applying the emulator patch, the companion is unnecessary for supported containers: the emulator reads the embedded metadata. Keep the original companion as a backup if you plan to remove the patch.
+With **Create package folder** enabled, `D:\Packed\Game.nsp` is saved as `D:\Packed\Game\Game.nsp`, with `main.npdm` and `Game.nsp.report.json` beside it. The companion is an optional workaround for the checked loader's early Switch 2 memory/clock detection. Keep each game/snapshot in a separate folder if using it; a conflicting companion is refused. The exact snapshot metadata is also embedded inside the package in both modes. After applying the emulator patch, the companion is unnecessary for supported containers: the emulator reads the embedded metadata. Keep the original companion as a backup if you plan to remove the patch.
 
-XCI uses a gamecard-style wrapper; NSP uses a downloadable-content package wrapper. Both preserve the same game payloads and selected artwork. NSP has slightly less wrapper overhead; it is not compressed and does not improve gameplay speed. These outputs are unsigned plaintext emulator repacks. NSP support does not make them authenticated installable retail-console packages. Actual loading depends on the emulator fork's plaintext-content support.
+NSP is a PFS0 container with Program, Control and Meta NCAs for games, or Data and Meta NCAs for DLC. It is not compressed. Outputs are unsigned plaintext emulator repacks; this does not make them authenticated retail-console packages. Loading depends on the emulator's plaintext-content support. NSP Box does not create XCI files.
 
 ## Use the emulator patch
 
 1. Fully close the emulator and open **Emulator patch** in the packager header.
 2. Select the folder containing the Windows x64 Eglantine/PokeDinner executables, then **Check** and **Add patch**. Matching unverified builds offer **Try patch** with an experimental warning.
-3. Restart the emulator. Open your XCI/NSP from a folder without an external `main.npdm`. Existing packages already contain their metadata and do not need rebuilding.
+3. Restart the emulator. Open your NSP from a folder without an external `main.npdm`. Existing packages already contain their metadata and do not need rebuilding.
 4. For new single-file outputs, uncheck **Create package folder**. It remains on by default for compatibility with unpatched emulators.
 
 The packager need not stay open while playing. **Remove patch** restores exact backed-up executable bytes; retain the emulator folder's `.s2gp-patch` directory while patched. If **Older patch** appears, remove it before adding the corrected patch. Re-check after emulator updates. Future releases/forks must match the reviewed loader and metadata-reader code; unmatched or ambiguous executables are not modified.
@@ -69,7 +75,7 @@ My Game/
 
 An empty `base` folder is fine when an update folder already contains the complete mounted game filesystem. A folder containing only update differences is **not** sufficient. Completeness cannot be reliably determined from filenames; select a snapshot you know is complete.
 
-Separate updates and DLC are not automatically merged. DLC folders are left out. Multi-program applications, patch-only/BKTR data, encrypted NSP/XCI inputs, compressed ROM packages, decryption, and authenticated cartridge reconstruction are outside this release's scope. This is a snapshot packager, not an emulator or a universal game converter.
+The Game tab does not merge separate updates or DLC; DLC folders are left out of game snapshots. Use the DLC tab to create a separate add-on package for installation through a compatible emulator. Multi-program applications, patch-only/BKTR data, encrypted NSP/XCI inputs, compressed ROM packages, decryption, and authenticated cartridge reconstruction are outside this release's scope. This is a snapshot packager, not an emulator or a universal game converter.
 
 ## Artwork and metadata
 
@@ -79,7 +85,7 @@ Supported inputs include PNG, JPEG/JFIF, WEBP, AVIF, GIF, TIFF, BMP/DIB, Windows
 
 Use **Paste** or **Ctrl+V** to add a copied bitmap, copied artwork file, or local image-file path. Ordinary text pastes in text fields continue to work normally. You can also drag one artwork file into the app. Clipboard images are held in temporary PNG files until the app closes; the app reads the clipboard only when you request a paste. Copying a URL alone does not download its image.
 
-The app embeds the selected crop in either output format. No game artwork ships with this app.
+The app embeds the selected crop in the game NSP. No game artwork ships with this app.
 
 If a standard `control.nacp` is present at the snapshot/main root or under `control/`, the app preserves it and updates uncompressed title text and the display version. Otherwise it generates basic control metadata. Generated fields are not a recreation of all original save-size, network, language, or DLC settings. A folder version such as `327680` is a numeric dump version, not necessarily a human-readable game version.
 
@@ -108,8 +114,8 @@ The GUI's export button saves another copy without overwriting anything. Setup r
 
 ## Source and redistribution
 
-Full application source and synthetic tests are included under `source/` in the portable ZIP. In this repository, application modules are under `src/` and tests are at the root. The original application code is released under the MIT license in `LICENSE.txt`; third-party components retain their own licenses under `licenses/` and `THIRD_PARTY_NOTICES.md`.
+Full application source, icon assets and synthetic tests are available in the separate source ZIP on the [release page](https://github.com/smarkyie/switch2-game-packager/releases/latest). The portable ZIP contains the app, documentation and required license notices; it does not duplicate the source. In this repository, application modules are under `src/` and tests are at the root. The original application code is released under the MIT license in `LICENSE.txt`; third-party components retain their own licenses under `licenses/` and `THIRD_PARTY_NOTICES.md`.
 
-You may redistribute the app and source with the required license notices. The software was developed with AI assistance. This package includes no Nintendo code, game data, artwork, console firmware, tickets, certificates, or Nintendo cryptographic keys. Use your own extracted data and artwork; redistribution rights for input/output content are separate from the app's license.
+You may redistribute the app and source with the required license notices. The software was developed with AI assistance. This package includes no Nintendo code, game data, game cover artwork, console firmware, tickets, certificates, or Nintendo cryptographic keys. Use your own extracted data and artwork; redistribution rights for input/output content are separate from the app's license.
 
-See `TECHNICAL_NOTES.md` for implementation details and `BUILD.md` (or `source/BUILD.md` in the portable ZIP) to rebuild the EXE. See `GITHUB_RELEASES.md` for publishing future versions.
+See `TECHNICAL_NOTES.md` for implementation details and `BUILD.md` in the source ZIP to rebuild the EXE. See `GITHUB_RELEASES.md` for publishing future versions.

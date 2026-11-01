@@ -10,7 +10,7 @@ A user comparison of Mario Kart World NSP versus loose ExeFS/RomFS showed identi
 
 This release targets large extracted file collections, especially the initial scanning/table stage, and reduces verification I/O. It does not promise a fixed overall speedup.
 
-Version 1.4 adds NSP as a direct streaming target. It does not build an XCI and then convert it; it packages the same content streams straight into PFS0. It adds no input pass and does not create intermediate NCA/XCI files. A synthetic regression test compares source-open counts for XCI and NSP and checks the files written by the NSP path. Full integrity and source-payload verification remain enabled for both.
+NSP Box streams the same content directly into PFS0 without an intermediate container or temporary NCA files. Verification reuses source SHA-256 values captured while writing, then independently reads back all output integrity trees and payloads. Regression checks bound input reads and reject intermediate container files. Packaging format does not guarantee higher gameplay FPS.
 
 ## Changes
 

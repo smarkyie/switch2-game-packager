@@ -1,6 +1,6 @@
-# Experimental emulator patch — version 2.0
+# NSP Box — experimental emulator patch
 
-Open **Emulator patch** in the packager header. Select the folder containing the
+Open **Emulator patch** in the NSP Box header. Select the folder containing the
 Windows x64 emulator executable, close that emulator, then use **Add patch** (or
 **Try patch** for an unverified match). Restart it normally. To undo, select the
 same folder and choose **Remove patch**, even if the patched emulator cannot boot.
@@ -13,7 +13,9 @@ The corrected probe selects 31.25 MHz, matching the external-file startup path.
 If the panel shows **Older patch**, remove it with this app and then add the new
 patch. Original 1.5.0 backups/payloads remain supported for safe removal.
 
-For a new single-file package, uncheck **Create package folder**. Existing packages
+NSP Box emits NSP packages only. The native compatibility probe retains support for older containers so existing patch backups and legacy packages remain usable.
+
+For a new single-file NSP package, uncheck **Create package folder**. Existing packages
 already contain their own NPDM and do not need to be rebuilt for this patch.
 For testing, use a directory without an external `main.npdm`, keeping your original
 package and companion as a backup. This feature is experimental; verify actual
@@ -21,13 +23,19 @@ booting, rendering and performance yourself before relying on companion-free use
 
 ## Recognized builds and future updates
 
-Exact executable profiles were checked for:
+The patch panel shows this list directly. Official Windows x64 assets checked on **2026-11-01**:
 
-- [Eglantine build 96](https://github.com/Djihads80/Eglantine/releases/tag/build-96),
-  commit `e96917cd0e68851ec389dd519f03b52adc11d493`: Windows x64 standard and PGO,
-  `eglantine.exe` and `eden-cli.exe`.
-- PokeDinner 2.0.0, commit `70ecb39ef0`, the supplied Windows x64 build:
-  `eglantine.exe` and `eden-cli.exe`.
+| Target | Supported variants |
+|---|---|
+| [Eglantine nx2 build 98](https://github.com/Djihads80/Eglantine/releases/tag/build-98) (`adae763`) | Standard + PGO, GUI and CLI |
+| [Eglantine AMD Experimental 77-2, tag build-99](https://github.com/Djihads80/Eglantine/releases/tag/build-99) (`a42b4d4`) | Standard + PGO, GUI and CLI |
+| [Eglantine nx2 build 96](https://github.com/Djihads80/Eglantine/releases/tag/build-96) (`e96917c`) | Standard + PGO, GUI and CLI |
+| [PokeDinner 2.1.0a](https://git.eden-emu.dev/Franseven/PokeDinner-a-Eglantine-Fork/releases/tag/2.1.0a) (pre-release; asset named 2.1.0) | GUI and CLI |
+| [PokeDinner 2.0.0](https://git.eden-emu.dev/Franseven/PokeDinner-a-Eglantine-Fork/releases/tag/2.0.0) | Previously checked GUI and CLI |
+
+Build 99 is the AMD experimental release, not the regular nx2 build 99. Both latest tracks are listed separately. All targets require their recognized executable bytes or a unique reviewed-code match. Support means patch recognition/detection and reversible installation; it is not a promise of game compatibility or performance.
+
+The ten newly checked executables passed exact apply/remove restoration and **60 isolated native hook cases** (Switch 1/2 NCA, NSP and legacy-container metadata). Real CLI startup comparisons passed for standard Eglantine 98, AMD 77-2/build-99 standard and PokeDinner 2.1.0a: the patch selected the same **31.25 MHz** guest counter as an external companion. PGO native-hook/restore checks passed, but the unmodified PGO CLI also exited with Windows invalid-handle error `0xC0000008` during these startup attempts. Full PGO startup/gameplay is therefore not claimed; those failures did not require a patch to reproduce.
 
 The same menu also scans other executable names and future builds automatically.
 It compares normalized loader-code fingerprints: relative addresses may move,
@@ -80,7 +88,7 @@ The emulator must be closed; an in-use file can prevent replacement.
 ## Validation and its limits
 
 Synthetic native probe checks cover both Windows C++ VFS ABIs, Switch 1 and
-Switch 2 metadata, XCI/NSP/NCA and malformed/truncated input. The actual patched
+Switch 2 metadata, NSP/NCA and malformed/truncated input. The actual patched
 GUI and CLI hook code was executed in isolated mappings of all six recognized
 executables, with synthetic VFS callbacks. Transaction tests cover exact restore,
 repeat apply/remove, partial failures, changed backups, manifest path rejection,

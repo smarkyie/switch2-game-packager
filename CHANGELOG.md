@@ -1,5 +1,20 @@
 # Release notes
 
+## 3.0.0 — 2026-11-01
+
+- **New branding:** NSP Box, with redesigned icons and a new app logo.
+- **Smoother UI:** subtle animated background, fluid transitions, and improved spacing.
+- **NSP-only packaging:** removed XCI output from games and DLC.
+- **Dedicated DLC tab:** create separate DLC NSPs for compatible emulators. Thanks [@ryzendew](https://github.com/ryzendew) for requesting separate packages in [#1](https://github.com/smarkyie/switch2-game-packager/issues/1).
+- **Expanded patch support:** Eglantine build 98, AMD Experimental build-99, and PokeDinner 2.1.0a. Supported builds are now listed in the patch panel.
+- **Fixed drag-and-drop crashes:** artwork and folder drops no longer crash the app. Thanks [@WicCaesar](https://github.com/WicCaesar) for reporting [#2](https://github.com/smarkyie/switch2-game-packager/issues/2).
+- **Windows x64 portable release**, with source code included as a separate download.
+- **Existing game packages don't need rebuilding** to use the expanded emulator patch support.
+
+**Experimental build — limited real-world testing.** Emulator and DLC compatibility varies. Supported patched emulators can load packages without an external `main.npdm`.
+
+**Found a problem? Please [open an issue](https://github.com/smarkyie/switch2-game-packager/issues/new)** with your app/emulator version, steps to reproduce, and any error messages. Your reports help improve the next build.
+
 ## 2.0.0 — 2026-11-01
 
 - **New Emulator patch panel:** select a Windows x64 emulator folder, check compatibility, add the patch and remove it later. Eglantine build 96 standard/PGO and PokeDinner 2.0.0 GUI/CLI profiles are recognized; matching future builds and forks can be tried experimentally without a new menu entry.
