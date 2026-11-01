@@ -1,4 +1,4 @@
-"""Rebuild extracted, already-decrypted title files as an emulator XCI.
+"""Rebuild extracted, already-decrypted title files as an emulator NSP.
 
 No Nintendo keys, tickets, or cartridge signatures are generated or needed here.
 NCA headers and sections are plaintext, with conventional PFS0/SHA256 and RomFS/IVFC.
@@ -220,3 +220,12 @@ def nca(sections, title_id, content_type, distribution=1):
     struct.pack_into('<Q',hdr,0x208,off)
     return Blob(hdr,*parts)
 
+
+def package(entries, kind='nsp'):
+    """Stream NCA blobs into NSP/PFS0; no other output formats are emitted."""
+    if kind != 'nsp':
+        raise ValueError('NSP Box supports NSP output only.')
+    result = filesystem(entries)
+    if result.size > 32 << 30:
+        raise ValueError('This release supports packages up to 32 GiB.')
+    return result

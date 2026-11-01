@@ -4,14 +4,14 @@ import json, os, sys, tempfile
 import tkinter as tk
 from ui import BG, PANEL, TEXT, MUTED, Button, Check, Motion, Panel, ui_font
 
-NOTICE_ID = 'experimental-emulator-patch-v3'
+NOTICE_ID = 'nsp-box-experimental-v1'
 CAUTION = (
     'Set your emulator to 12 GiB RAM before testing Switch 2 packages. '
     'Some PokeDinner/Eglantine builds can exit on boot with the default 4 GiB setting.\n\n'
     'New: Emulator patch lets compatible Windows x64 Eglantine/PokeDinner builds read '
-    'the metadata inside your XCI/NSP. After adding the patch and restarting the emulator, '
+    'the metadata inside your NSP. After adding the patch and restarting the emulator, '
     'a separate main.npdm beside the game is not needed. Uncheck Create package folder '
-    'to produce only the XCI/NSP.\n\n'
+    'to produce only the NSP.\n\n'
     'Without the patch, keep each game with its own external main.npdm. Selecting '
     '12 GiB alone may boot with incorrect timing and lower performance. The patch is '
     'experimental and reversible; future builds may not match. This app does not '
@@ -21,8 +21,8 @@ CAUTION = (
 
 def default_preferences_path():
     if sys.platform.startswith('linux'):
-        return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/'Switch2GamePackager'/'preferences.json'
-    return Path(os.environ.get('LOCALAPPDATA') or Path.home())/'Switch2GamePackager'/'preferences.json'
+        return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/'NSPBox'/'preferences.json'
+    return Path(os.environ.get('LOCALAPPDATA') or Path.home())/'NSPBox'/'preferences.json'
 
 def read_preferences(path):
     try:

@@ -14,7 +14,7 @@ class VerificationSafetyTests(unittest.TestCase):
         struct.pack_into('<Q',b,0x90,0x0400111122220000)
         (self.game/'exefs/main.npdm').write_bytes(b);(self.game/'exefs/main').write_bytes(b'NSO0'+bytes(128))
         (self.game/'romfs/data.bin').write_bytes(b'original'*20000);(self.game/'romfs/empty.bin').write_bytes(b'')
-        self.snapshot=engine.find_snapshots(self.game)[0][0];self.out=self.root/'Output.xci'
+        self.snapshot=engine.find_snapshots(self.game)[0][0];self.out=self.root/'Output.nsp'
     def tearDown(self):self.tmp.cleanup()
     def test_readback_does_not_reread_source_files(self):
         original_verify=engine.verify_image;original_open=Path.open

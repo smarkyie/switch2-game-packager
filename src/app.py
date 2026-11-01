@@ -14,7 +14,7 @@ from ui import Layout, BG, PANEL, FIELD, TEXT, MUTED, ACCENT, BORDER
 class App(Layout,tk.Tk):
     def __init__(self,show_startup=True,preferences_path=None):
         super().__init__()
-        self.title('Switch 2 Game Packager');self.configure(bg=BG)
+        self.title('NSP Box');self.configure(bg=BG)
         self.geometry('1020x800');self.minsize(950,760)
         self.events=queue.Queue();self.cancel_event=threading.Event();self.busy=False;self.scanning=False
         self.snapshots=[];self.art_path=None;self.art_selection=None;self.last_output=None;self.last_progress=0
@@ -23,11 +23,12 @@ class App(Layout,tk.Tk):
         self._startup_dialog=None;self._startup_job=None
         self.folder=tk.StringVar();self.snapshot_label=tk.StringVar();self.title_text=tk.StringVar()
         self.version_text=tk.StringVar(value='Snapshot');self.output=tk.StringVar();self.id_text=tk.StringVar(value='Choose a game folder to detect the title ID.')
-        self.output_format=tk.StringVar(value='XCI')
         self.verify=tk.BooleanVar(value=True);self.package_folder=tk.BooleanVar(value=True);self.status=tk.StringVar(value='Ready')
         self.detail=tk.StringVar(value='Select a game folder to begin.')
-        self.style();self.layout();self.protocol('WM_DELETE_WINDOW',self.close);self._poll_job=self.after(100,self.poll)
-        self.output_format.trace_add('write',self.format_changed)
+        self.style();self.layout()
+        from dlc_panel import DlcPanel
+        self.dlc_panel=DlcPanel(self);self.active_tab='game'
+        self.protocol('WM_DELETE_WINDOW',self.close);self._poll_job=self.after(100,self.poll)
         self.bind_all('<Control-v>',self.paste_art_shortcut,add='+')
         self.bind_all('<Control-V>',self.paste_art_shortcut,add='+')
         if show_startup:self._startup_job=self.after(180,self.show_startup_caution)
@@ -36,6 +37,20 @@ class App(Layout,tk.Tk):
         self._startup_job=None
         if self._startup_dialog is not None and self._startup_dialog.winfo_exists():return
         if should_show(self.preferences_path):self._startup_dialog=StartupNotice(self,self.preferences_path)
+
+    def show_tab(self,tab):
+        if self.busy or self.scanning or self.dlc_panel.busy:return
+        if tab==self.active_tab:return
+        self.active_tab=tab
+        if tab=='dlc':
+            self.content_area.pack_forget();self.game_footer.pack_forget()
+            self.dlc_panel.pack(fill='both',expand=True)
+        else:
+            self.dlc_panel.pack_forget();self.game_footer.pack(side='bottom',fill='x')
+            self.content_area.pack(fill='both',expand=True,padx=20,pady=(0,12))
+        for button,selected in ((self.game_tab_button,tab=='game'),(self.dlc_tab_button,tab=='dlc')):
+            button.set_selected(selected)
+        self.enter_panels(self.dlc_panel.panels if tab=='dlc' else self.panels)
 
     def pick_folder(self):
         value=filedialog.askdirectory(title='Select main game dump folder',parent=self)
@@ -63,17 +78,11 @@ class App(Layout,tk.Tk):
         self.version_text.set(v)
         name=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',s.title).rstrip('. ')[:110]
         destination=s.root.parent
-        self.output.set(str(destination/(f'{name} [{s.title_id:016X}].{self.output_format.get().lower()}')))
-
-    def format_changed(self,*args):
-        kind=self.output_format.get()
-        if self.output.get().strip():
-            self.output.set(str(Path(self.output.get()).with_suffix('.'+kind.lower())))
-        self.build_btn.configure(text='Build '+kind)
+        self.output.set(str(destination/(f'{name} [{s.title_id:016X}].nsp')))
 
     def pick_output(self):
         current=Path(self.output.get()) if self.output.get() else None
-        kind=self.output_format.get();ext='.'+kind.lower()
+        kind='NSP';ext='.nsp'
         value=filedialog.asksaveasfilename(parent=self,title='Save rebuilt '+kind,defaultextension=ext,
             filetypes=[(kind+' package','*'+ext)],initialdir=str(current.parent) if current else None,
             initialfile=current.name if current else 'Game'+ext,confirmoverwrite=False)
@@ -110,6 +119,7 @@ class App(Layout,tk.Tk):
         finally:self._art_editor=None
 
     def paste_art_shortcut(self,event=None):
+        if self.active_tab=='dlc':return None
         return 'break' if self.paste_art(quiet=True) else None
 
     def paste_art(self,quiet=False):
@@ -117,7 +127,7 @@ class App(Layout,tk.Tk):
         try:
             value=ImageGrab.grabclipboard()
             if isinstance(value,Image.Image):
-                if self._clipboard_temp is None:self._clipboard_temp=tempfile.TemporaryDirectory(prefix='xci-artwork-')
+                if self._clipboard_temp is None:self._clipboard_temp=tempfile.TemporaryDirectory(prefix='nsp-box-artwork-')
                 path=Path(self._clipboard_temp.name)/('Clipboard-'+str(time.time_ns())+'.png')
                 value.save(path,format='PNG');self.set_art(path);return True
             if isinstance(value,list):
@@ -146,7 +156,6 @@ class App(Layout,tk.Tk):
         for w in (self.browse,self.folder_entry,self.name_entry,self.version_entry,self.out_entry,self.save_btn,self.art_btn,self.paste_art_btn,self.clear_art_btn,self.verify_check,self.package_folder_check,self.build_btn):
             w.configure(state='disabled' if value else 'normal')
         self.combo.configure(state='disabled' if value else 'readonly')
-        self.format_combo.configure(state='disabled' if value else 'readonly')
         self.crop_art_btn.configure(state='normal' if self.art_selection and not value else 'disabled')
         self.cancel_btn.configure(state='normal' if value else 'disabled')
 
@@ -156,7 +165,6 @@ class App(Layout,tk.Tk):
         if not 0<=i<len(self.snapshots):messagebox.showinfo('Choose a game','Select a game folder first.',parent=self);return
         if not self.output.get().strip():self.pick_output();return
         options=(self.snapshots[i],Path(self.output.get()),self.title_text.get().strip(),self.version_text.get().strip(),self.art_selection or self.art_path,self.verify.get())
-        output_format=self.output_format.get()
         package_folder=self.package_folder.get()
         self.set_busy(True);self.cancel_event.clear();self.last_progress=0;self.progressbar['value']=0
         self.status.set('Preparing build');self.detail.set('Your original dump stays untouched.');self.open_btn.configure(state='disabled')
@@ -166,7 +174,7 @@ class App(Layout,tk.Tk):
                 now=time.monotonic()
                 if now-last[0]>.12 or value>=100:
                     self.events.put(('progress',(stage,value)));last[0]=now
-            try:self.events.put(('done',engine.build(*options,notify=notify,cancel=self.cancel_event,output_format=output_format,package_folder=package_folder)))
+            try:self.events.put(('done',engine.build(*options,notify=notify,cancel=self.cancel_event,package_folder=package_folder)))
             except InterruptedError:self.events.put(('cancelled',None))
             except Exception as e:self.events.put(('error',(str(e),traceback.format_exc())))
         threading.Thread(target=worker,daemon=True).start()
@@ -220,8 +228,8 @@ class App(Layout,tk.Tk):
         ttk.Label(w,text='Before sharing or packaging',style='Section.TLabel').pack(anchor='w',padx=24,pady=(22,12))
         text=('Select a complete decrypted game snapshot: sibling exefs and romfs folders. You may also select a main folder containing base and updates subfolders, then choose a snapshot.\n\n'
               'An update folder must contain a complete mounted filesystem, not only changed files. The app cannot determine completeness from file names. Separate updates, DLC and multi-program titles are not combined automatically.\n\n'
-              'Choose XCI or NSP in Output. Both are unsigned plaintext emulator packages, written directly without an intermediate container. Packaging cannot add emulator support for a game. Original control metadata is preserved when present; otherwise basic metadata is generated.\n\n'
-              'Experimental compatibility: set emulator memory to 12 GiB before testing Switch 2 packages. Use Emulator patch in the header to add or remove embedded-metadata detection in compatible Windows x64 Eglantine/PokeDinner builds. After applying the patch and restarting, a separate main.npdm is not needed. Without the patch, retain each game with its own external main.npdm: 12 GiB alone can use incorrect timing and reduce performance. Future builds may not match. The app does not change memory settings. Create package folder remains on by default and includes a companion/report; uncheck it to save only the XCI/NSP. Verification does not guarantee booting, gameplay or performance.\n\n'
+              'NSP Box creates unsigned plaintext NSP packages, streamed directly without an intermediate container. Packaging cannot add emulator support for a game. Original control metadata is preserved when present; otherwise basic metadata is generated.\n\n'
+              'Experimental compatibility: set emulator memory to 12 GiB before testing Switch 2 packages. Use Emulator patch in the header to add or remove embedded-metadata detection in compatible Windows x64 Eglantine/PokeDinner builds. After applying the patch and restarting, a separate main.npdm is not needed. Without the patch, retain each game with its own external main.npdm: 12 GiB alone can use incorrect timing and reduce performance. Future builds may not match. The app does not change memory settings. Create package folder remains on by default and includes a companion/report; uncheck it to save only the NSP. Verification does not guarantee booting, gameplay or performance.\n\n'
               'For missing-key errors, close the emulator and use Set up emulator keys folder below. It adds only missing local placeholders, preserves existing entries and prod.keys, and backs up an existing autogenerated file. These are not Nintendo keys and cannot decrypt retail content. Setup is never automatic.\n\n'
               'See the included README, TECHNICAL_NOTES and source folder for the format, tests, limitations and build instructions.')
         ttk.Label(w,text=text,wraplength=595,justify='left').pack(padx=24,anchor='w')
@@ -259,28 +267,49 @@ class App(Layout,tk.Tk):
         if dialog is not None and dialog.winfo_exists():
             if dialog.working:dialog.lift();dialog.message.set('Wait for the emulator patch operation to finish before closing.');return
             dialog.close()
+        if self.dlc_panel.busy:
+            self.dlc_panel.cancel();return
         if self.busy:
             self.cancel();self.detail.set('Cancelling the build. Close the app again after cleanup finishes.');return
+        self.dlc_panel.close()
         if self._drops:self._drops.close()
         if self._startup_job:self.after_cancel(self._startup_job)
         if self._startup_dialog is not None and self._startup_dialog.winfo_exists():
             self._startup_dialog.dont_show.set(False);self._startup_dialog.close()
         if self._poll_job:self.after_cancel(self._poll_job)
-        self.motion.stop()
+        for job in self._visual_jobs:self.after_cancel(job)
+        self._visual_jobs.clear()
+        self.status_icon.stop();self._ambient.stop();self.motion.stop()
         self.destroy()
         if self._clipboard_temp:self._clipboard_temp.cleanup()
 
 def cli(argv):
-    parser=argparse.ArgumentParser(description='Package a complete extracted ExeFS/RomFS snapshot into XCI or NSP.')
+    parser=argparse.ArgumentParser(description='Package a complete extracted ExeFS/RomFS snapshot into NSP.')
     parser.add_argument('--package',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--artwork',type=Path);parser.add_argument('--title');parser.add_argument('--snapshot',type=int,default=0)
     parser.add_argument('--display-version');parser.add_argument('--skip-verification',action='store_true')
-    parser.add_argument('--format',choices=('xci','nsp'),help='Output format; inferred from --output extension when omitted.')
-    parser.add_argument('--package-folder',action=argparse.BooleanOptionalAction,default=True,help='Create a folder including metadata and a JSON report (default). Use --no-package-folder for only the XCI/NSP.')
+    parser.add_argument('--format',choices=('nsp',),help=argparse.SUPPRESS)
+    parser.add_argument('--package-folder',action=argparse.BooleanOptionalAction,default=True,help='Create a folder including metadata and a JSON report (default). Use --no-package-folder for only the NSP.')
+    parser.add_argument('--dlc',action='store_true',help='Package extracted DLC RomFS instead of a complete game; always single-file output.')
+    parser.add_argument('--dlc-title-id',help='Original DLC title ID when it is absent from folder names.')
+    parser.add_argument('--dlc-version',help='Numeric DLC version; otherwise detected from the version folder.')
+    parser.add_argument('--base-game',type=Path,help='Optional base-game plaintext NSP for DLC mapping validation.')
     art_options=parser.add_mutually_exclusive_group()
     art_options.add_argument('--artwork-fit',action='store_true')
     art_options.add_argument('--artwork-crop',nargs=4,type=float,metavar=('LEFT','TOP','RIGHT','BOTTOM'))
-    args=parser.parse_args(argv);snapshots,_=engine.find_snapshots(args.package)
+    args=parser.parse_args(argv)
+    if args.dlc:
+        import dlc
+        if args.artwork or args.artwork_fit or args.artwork_crop:
+            raise ValueError('DLC is data-only and does not use game cover artwork.')
+        snapshots=dlc.find_snapshots(args.package,args.dlc_title_id)
+        if not 0<=args.snapshot<len(snapshots):raise ValueError('DLC snapshot index is out of range.')
+        s=snapshots[args.snapshot]
+        if args.dlc_version is not None:s=dlc.DlcSnapshot(s.root,s.title_id,dlc.parse_version(args.dlc_version),s.label)
+        return dlc.build(s,args.output,args.format,not args.skip_verification,args.base_game)
+    if args.dlc_title_id or args.dlc_version is not None or args.base_game:
+        raise ValueError('DLC options require --dlc.')
+    snapshots,_=engine.find_snapshots(args.package)
     if not 0<=args.snapshot<len(snapshots):raise ValueError('Snapshot index is out of range.')
     s=snapshots[args.snapshot]
     if (args.artwork_fit or args.artwork_crop) and not args.artwork:raise ValueError('Choose --artwork before specifying its crop mode.')

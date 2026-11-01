@@ -1,15 +1,25 @@
 """Minimal native Tk interface, vector graphics, and time-based motion."""
 from pathlib import Path
-import ctypes, sys, time
+import ctypes, sys, time, queue
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk, ImageDraw, ImageOps
 from functools import lru_cache
+from weakref import WeakKeyDictionary
+from ambient import AmbientBackground, AmbientFrame, AmbientLabel
 from artwork import IMAGE_EXTENSIONS
 
 BG='#0e1726';PANEL='#172338';FIELD='#1c2b42';TEXT='#edf4ff';MUTED='#93a8c8'
 ACCENT='#289bff';BORDER='#2a3b56';ICON='#a9c8f3'
+ASSET_DIR=Path(__file__).resolve().parent/'assets'/'icons'
+_PHOTO_CACHES=WeakKeyDictionary()
+ICON_ALIASES={'folder':'browse-folder','download':'game-files','image':'cover-art',
+              'cube':'build','file':'save-output','clipboard':'paste','info':'notes'}
+
+@lru_cache(maxsize=64)
+def has_icon_asset(kind):
+    return (ASSET_DIR/(ICON_ALIASES.get(kind,kind)+'.png')).is_file()
 
 def ui_font(size,bold=False):
     if sys.platform=='win32':return ('Segoe UI Semibold' if bold else 'Segoe UI',size)
@@ -19,7 +29,11 @@ def rgb(color):return tuple(int(color[i:i+2],16) for i in (1,3,5))
 def blend(a,b,t):return '#'+''.join(f'{round(x+(y-x)*max(0,min(1,t))):02x}' for x,y in zip(rgb(a),rgb(b)))
 @lru_cache(maxsize=128)
 def icon_art(kind,size,color,width):
-    """Render the original vector paths at 4x, then antialias down to UI size."""
+    """Load the reviewed artwork once per size; small utility marks stay native."""
+    asset=ASSET_DIR/(ICON_ALIASES.get(kind,kind)+'.png')
+    if asset.is_file():
+        with Image.open(asset) as source:
+            return source.convert('RGBA').resize((int(size),int(size)),Image.Resampling.LANCZOS)
     scale=4;size=int(size);unit=size*scale/24
     image=Image.new('RGBA',(size*scale,size*scale));d=ImageDraw.Draw(image)
     pen=max(1,round(width*scale));r=pen/2
@@ -53,28 +67,48 @@ def icon_art(kind,size,color,width):
     return image.resize((size,size),Image.Resampling.LANCZOS)
 
 def icon(c,kind,x,y,size=22,color=ICON,width=1.7,tag='icon'):
-    if not c.find_withtag('aa-icon'):c._icon_refs=[]
-    photo=ImageTk.PhotoImage(icon_art(kind,int(size),color,width),master=c);c._icon_refs.append(photo)
+    root=c.winfo_toplevel()._root()
+    cache=_PHOTO_CACHES.setdefault(root,{})
+    # PNGs retain their own palette. Hover colors must not decode/reallocate
+    # this same 1K source on every frame of a drop-zone or button animation.
+    asset=has_icon_asset(kind)
+    key=(kind,int(size),None if asset else color,0 if asset else width)
+    photo=cache.get(key)
+    if photo is None:
+        photo=cache[key]=ImageTk.PhotoImage(icon_art(kind,int(size),ICON if asset else color,1.7 if asset else width),master=c)
     return c.create_image(x,y,image=photo,anchor='nw',tags=(tag,'aa-icon'))
 
-def surface(c,w,h,fill,border,radius=17,gradient=None):
-    """Antialiased rounded geometry. No downloaded or generated image assets."""
-    w=max(1,int(w));h=max(1,int(h));factor=3
+@lru_cache(maxsize=96)
+def surface_art(w,h,fill,border,radius,gradient):
+    """Cache antialiased geometry; gradient interpolation runs in Pillow's C code."""
+    factor=2
     im=Image.new('RGBA',(w*factor,h*factor));d=ImageDraw.Draw(im)
     d.rounded_rectangle((factor,factor,(w-1)*factor,(h-1)*factor),radius=radius*factor,fill=fill,outline=border,width=factor)
     if gradient:
         mask=Image.new('L',im.size);md=ImageDraw.Draw(mask)
         md.rounded_rectangle((2*factor,2*factor,(w-2)*factor,(h-2)*factor),radius=max(1,radius-1)*factor,fill=255)
-        layer=Image.new('RGBA',im.size);ld=ImageDraw.Draw(layer)
-        for y in range(h*factor):ld.line((0,y,w*factor,y),fill=blend(gradient[0],gradient[1],y/max(1,h*factor-1)))
+        ramp=Image.linear_gradient('L').resize((1,h*factor))
+        layer=ImageOps.colorize(ramp,gradient[0],gradient[1]).resize(im.size)
         im.paste(layer,(0,0),mask)
-    photo=ImageTk.PhotoImage(im.resize((w,h),Image.Resampling.LANCZOS),master=c)
-    c._surface_photo=photo
+    return im.resize((w,h),Image.Resampling.LANCZOS)
+
+def surface(c,w,h,fill,border,radius=17,gradient=None):
+    w=max(1,int(w));h=max(1,int(h))
+    backdrop=getattr(c.winfo_toplevel(),'_ambient',None)
+    if backdrop is not None and c.cget('bg')==BG:
+        if c not in backdrop.targets:backdrop.register(c)
+        elif not c.find_withtag('ambient'):backdrop.paint(c)
+    key=(w,h,fill,border,radius,gradient)
+    if getattr(c,'_surface_key',None)!=key:
+        c._surface_photo=ImageTk.PhotoImage(surface_art(*key),master=c)
+        c._surface_key=key
+    photo=c._surface_photo
     return c.create_image(0,0,image=photo,anchor='nw',tags='surface')
 
 class Motion:
-    def __init__(self,root):self.root=root;self.enabled=True;self.jobs={}
+    def __init__(self,root):self.root=root;self.enabled=True;self.jobs={};self.closed=False
     def to(self,key,initial,final,duration,update,done=None):
+        if self.closed:return
         old=self.jobs.pop(key,None)
         if old:
             try:self.root.after_cancel(old)
@@ -85,8 +119,8 @@ class Motion:
             return
         started=time.perf_counter()
         def tick():
-            if not self.root.winfo_exists():return
-            t=min(1,(time.perf_counter()-started)/duration);ease=1-(1-t)**3
+            if self.closed or not self.root.winfo_exists():return
+            t=min(1,(time.perf_counter()-started)/duration);ease=1-(1-t)**4
             try:update(initial+(final-initial)*ease)
             except tk.TclError:self.jobs.pop(key,None);return
             if t<1:self.jobs[key]=self.root.after(16,tick)
@@ -95,6 +129,7 @@ class Motion:
                 if done:done()
         tick()
     def stop(self):
+        self.closed=True
         for job in self.jobs.values():
             try:self.root.after_cancel(job)
             except tk.TclError:pass
@@ -106,6 +141,7 @@ class Button(tk.Canvas):
                          bd=0,takefocus=True,cursor='hand2',**kw)
         self.text=text;self.command=command;self.motion=motion;self.kind=kind;self.primary=primary
         self.quiet=quiet;self.enabled=state!='disabled';self.hot=0.;self.pressed=False;self.focused=False
+        self.press_depth=0.;self.selection=1. if primary else 0.;self._metrics=None
         self.bind('<Configure>',lambda e:self.draw());self.bind('<Enter>',lambda e:self.hover(1))
         self.bind('<Leave>',lambda e:self.hover(0));self.bind('<ButtonPress-1>',self.press)
         self.bind('<ButtonRelease-1>',self.release);self.bind('<Return>',lambda e:self.invoke())
@@ -122,13 +158,21 @@ class Button(tk.Canvas):
     def focus(self,value):self.focused=value;self.draw()
     def hover(self,target):
         if not self.enabled:target=0
-        self.motion.to((id(self),'hover'),self.hot,target,.16,self.paint_hover)
+        self.motion.to((id(self),'hover'),self.hot,target,.23,self.paint_hover)
     def paint_hover(self,value):self.hot=value;self.draw()
     def press(self,event):
-        if self.enabled:self.focus_set();self.pressed=True;self.draw()
+        if self.enabled:
+            self.focus_set();self.pressed=True
+            self.motion.to((id(self),'press'),self.press_depth,1.,.12,self.paint_press)
     def release(self,event):
-        pressed=self.pressed;self.pressed=False;self.draw()
+        pressed=self.pressed;self.pressed=False
+        self.motion.to((id(self),'press'),self.press_depth,0.,.24,self.paint_press)
         if pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height():self.invoke()
+    def paint_press(self,value):self.press_depth=value;self.draw()
+    def set_selected(self,selected):
+        self.primary=selected;self.quiet=not selected
+        self.motion.to((id(self),'selection'),self.selection,float(selected),.30,self.paint_selection)
+    def paint_selection(self,value):self.selection=value;self.draw()
     def invoke(self):
         if self.enabled and self.command:self.command()
     def draw(self):
@@ -136,23 +180,25 @@ class Button(tk.Canvas):
         if w<3:return
         bg=self.cget('bg');base='#163d66' if self.primary else '#22344e'
         fill=blend(base,'#3d608c',self.hot*.48)
-        if self.primary:
+        if self.primary or self.selection>.001:
             top=blend('#1baaff','#68c6ff',self.hot*.45);bottom=blend('#0568ed','#398bff',self.hot*.5)
             if not self.enabled:top=bottom='#244361'
-            if self.pressed:top=blend(top,'#071323',.2);bottom=blend(bottom,'#071323',.2)
+            top=blend(top,'#071323',self.press_depth*.16);bottom=blend(bottom,'#071323',self.press_depth*.16)
+            top=blend(bg,top,self.selection);bottom=blend(bg,bottom,self.selection)
             border=blend('#137ce8','#85d3ff',self.hot*.6)
             surface(self,w,h,top,border,14,(top,bottom))
         else:
             if self.quiet:fill=blend(bg,'#233752',self.hot)
             if not self.enabled:fill=blend(fill,bg,.6)
-            if self.pressed:fill=blend(fill,'#081321',.25)
+            fill=blend(fill,'#081321',self.press_depth*.22)
             border=blend('#3b5478','#6c9bd4',self.hot) if not self.quiet else fill
             surface(self,w,h,fill,'#9bcfff' if self.focused else border,14)
         color=TEXT if self.enabled else '#647c9c'
         font=ui_font(10,True)
-        import tkinter.font as fontmod
-        tw=fontmod.Font(font=font).measure(self.text);total=tw+(29 if self.kind else 0);start=(w-total)/2
-        dy=1 if self.pressed else 0
+        if self._metrics is None or self._metrics[0]!=(self.text,font):
+            self._metrics=((self.text,font),tkfont.Font(self,font=font).measure(self.text))
+        tw=self._metrics[1];total=tw+(29 if self.kind else 0);start=(w-total)/2
+        dy=1.5*self.press_depth
         if self.kind:icon(self,self.kind,start,(h-21)/2+dy,21,color)
         self.create_text(start+(29 if self.kind else 0),h/2+dy,text=self.text,anchor='w',fill=color,font=font)
 
@@ -162,9 +208,13 @@ class Panel(tk.Canvas):
         super().__init__(parent,bg=BG,highlightthickness=0,bd=0,**kw)
         self.inner=tk.Frame(self,bg=PANEL);self.inner_id=self.create_window(1,1,anchor='nw',window=self.inner)
         self.bind('<Configure>',self.resize)
+        backdrop=getattr(self.winfo_toplevel(),'_ambient',None)
+        if backdrop is not None:backdrop.register(self)
     def resize(self,event):
         self.delete('surface');surface(self,event.width,event.height,PANEL,'#263750',22)
-        self.tag_lower('surface');self.coords(self.inner_id,15,14)
+        self.tag_lower('surface')
+        if self.find_withtag('ambient'):self.tag_lower('ambient')
+        self.coords(self.inner_id,15,14)
         self.itemconfigure(self.inner_id,width=max(1,event.width-30),height=max(1,event.height-28))
 
 class Entry(tk.Canvas):
@@ -272,10 +322,11 @@ class Cover(tk.Canvas):
     def paint(self,value):self.hot=value;self.draw()
     def set_picture(self,image):
         self.picture=image.copy() if image is not None else None
-        self._photo_side=0
-        self.draw();self.app.motion.to((id(self),'reveal'),0,1,.28,self.reveal)
+        self._photo_side=0;self.reveal_t=0.
+        self.draw();self.app.motion.to((id(self),'reveal'),0,1,.42,self.reveal)
     def reveal(self,t):
         # A small lift reveals replacement art without changing the image itself.
+        self.reveal_t=t
         self.move('artwork',0,(self._art_y+8*(1-t))-self.coords('artwork')[1]) if self.find_withtag('artwork') else None
     def draw(self):
         self.delete('all');w=self.winfo_width();h=self.winfo_height()
@@ -285,7 +336,7 @@ class Cover(tk.Canvas):
             side=max(32,min(w-24,h-24,256))
             if self._photo_side!=side:
                 self.photo=ImageTk.PhotoImage(self.picture.resize((side,side),Image.Resampling.LANCZOS));self._photo_side=side
-            self._art_y=h/2;self.create_image(w/2,h/2,image=self.photo,tags='artwork')
+            self._art_y=h/2;self.create_image(w/2,h/2+8*(1-getattr(self,'reveal_t',1)),image=self.photo,tags='artwork')
         else:
             icon(self,'image',w/2-43,h*.38-43,86,'#6488b9',3)
             self.create_text(w/2,h*.69,text='Add cover artwork',fill='#b0c9ee',font=ui_font(11,True))
@@ -304,9 +355,9 @@ class Progress(tk.Canvas):
         self.create_rectangle(0,0,w*self.value/100,4,fill=ACCENT,outline='')
 
 class Check(tk.Canvas):
-    def __init__(self,parent,text,variable):
-        super().__init__(parent,bg=parent.cget('bg'),height=25,width=230,highlightthickness=0,bd=0,takefocus=True,cursor='hand2')
-        self.text=text;self.variable=variable;self.enabled=True
+    def __init__(self,parent,text,variable,kind=None):
+        super().__init__(parent,bg=parent.cget('bg'),height=25,width=280 if kind else 230,highlightthickness=0,bd=0,takefocus=True,cursor='hand2')
+        self.text=text;self.variable=variable;self.enabled=True;self.kind=kind
         self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',lambda e:self.invoke())
         self.bind('<space>',lambda e:self.invoke());self.bind('<Return>',lambda e:self.invoke())
         self.bind('<FocusIn>',lambda e:self.draw());self.bind('<FocusOut>',lambda e:self.draw())
@@ -322,12 +373,13 @@ class Check(tk.Canvas):
         self.delete('all');checked=self.variable.get()
         surface(self,22,22,'#168ff8' if checked else FIELD,'#8bcaff' if self.focus_get() is self else ('#3ba8ff' if checked else '#546d90'),6)
         if checked:icon(self,'check',3,3,16,TEXT,1.8)
-        self.create_text(31,11,text=self.text,anchor='w',fill=TEXT if self.enabled else MUTED,font=ui_font(10))
+        if self.kind:icon(self,self.kind,31,1,21)
+        self.create_text(58 if self.kind else 31,11,text=self.text,anchor='w',fill=TEXT if self.enabled else MUTED,font=ui_font(10))
 
 class Status(tk.Canvas):
     def __init__(self,parent,app):
         super().__init__(parent,width=43,height=43,bg=BG,highlightthickness=0,bd=0)
-        self.app=app;self.color='#53bd7b';self.phase=0;self.running=False
+        self.app=app;self.color='#53bd7b';self.phase=0;self.running=False;self.job=None
         app.status.trace_add('write',self.changed);self.bind('<Configure>',lambda e:self.draw());self.draw()
     def changed(self,*args):
         text=self.app.status.get().lower()
@@ -337,10 +389,13 @@ class Status(tk.Canvas):
         if (self.app.busy or self.app.scanning) and not self.running:self.running=True;self.spin()
     def paint_color(self,value):self.color=value;self.draw()
     def spin(self):
+        self.job=None
         if not self.winfo_exists():return
         self.phase=(self.phase+5)%360;self.draw()
-        if (self.app.busy or self.app.scanning) and self.app.motion.enabled:self.after(24,self.spin)
+        if (self.app.busy or self.app.scanning) and self.app.motion.enabled:self.job=self.after(16,self.spin)
         else:self.running=False;self.draw()
+    def stop(self):
+        if self.job is not None:self.after_cancel(self.job);self.job=None
     def draw(self):
         self.delete('all');surface(self,43,43,self.color,self.color,21)
         if self.app.busy or self.app.scanning:
@@ -351,6 +406,7 @@ class FileDrops:
     """Windows shell file drops. Hooks only this app's own top-level window."""
     def __init__(self,root,receive):
         self.root=root;self.receive=receive;self.old=None;self.callback=None;self.hwnd=None
+        self.pending=queue.SimpleQueue();self.job=None;self.closed=False
         if sys.platform!='win32':return
         from ctypes import wintypes as w
         self.user=ctypes.WinDLL('user32',use_last_error=True);self.shell=ctypes.WinDLL('shell32',use_last_error=True)
@@ -367,17 +423,36 @@ class FileDrops:
             if message==0x233:
                 paths=[]
                 try:
-                    for i in range(self.shell.DragQueryFileW(wp,0xffffffff,None,0)):
+                    for i in range(min(256,self.shell.DragQueryFileW(wp,0xffffffff,None,0))):
                         count=self.shell.DragQueryFileW(wp,i,None,0)
+                        if count>32767:continue
                         buffer=ctypes.create_unicode_buffer(count+1);self.shell.DragQueryFileW(wp,i,buffer,count+1);paths.append(buffer.value)
+                    self.pending.put(paths)
                 finally:self.shell.DragFinish(wp)
-                root.after(0,receive,paths);return 0
+                # Never enter Tcl/Tk from a ctypes Windows procedure. mainloop
+                # releases Tcl's Python thread state during native dispatch;
+                # calling even root.after here can abort the entire process.
+                return 0
             return self.user.CallWindowProcW(self.old,hwnd,message,wp,lp)
         self.callback=proc;ctypes.set_last_error(0)
         self.old=self.user.SetWindowLongPtrW(self.hwnd,-4,ctypes.cast(proc,ctypes.c_void_p))
         if not self.old:raise ctypes.WinError(ctypes.get_last_error())
         self.shell.DragAcceptFiles(self.hwnd,True)
+        self.job=root.after(40,self.drain)
+    def drain(self):
+        self.job=None
+        if self.closed:return
+        try:
+            for _ in range(8):
+                try:paths=self.pending.get_nowait()
+                except queue.Empty:break
+                if paths:self.receive(paths)
+        finally:
+            if not self.closed:self.job=self.root.after(40,self.drain)
     def close(self):
+        self.closed=True
+        if self.job:
+            self.root.after_cancel(self.job);self.job=None
         if self.old and self.hwnd:
             self.shell.DragAcceptFiles(self.hwnd,False);self.user.SetWindowLongPtrW(self.hwnd,-4,self.old);self.old=None
 
@@ -406,7 +481,8 @@ class Layout:
         s.map('TButton',background=[('active','#294566')]);s.configure('TFrame',background=BG)
 
     def label(self,parent,text=None,var=None,color=TEXT,size=10,bold=False,**kw):
-        return tk.Label(parent,text=text,textvariable=var,bg=parent.cget('bg'),fg=color,
+        label_type=AmbientLabel if isinstance(parent,AmbientFrame) else tk.Label
+        return label_type(parent,text=text,textvariable=var,bg=parent.cget('bg'),fg=color,
                         font=ui_font(size,bold),bd=0,**kw)
 
     def heading(self,parent,title,kind):
@@ -415,34 +491,41 @@ class Layout:
         self.label(row,title,size=12,bold=True).pack(side='left')
 
     def layout(self):
-        self.configure(bg=BG);self.geometry('1160x830');self.minsize(1010,780)
+        self.configure(bg=BG);self.geometry('1160x880');self.minsize(1010,830)
+        self._ambient=AmbientBackground(self,self.motion)
         self.title_id_text=tk.StringVar(value='Detected automatically');self.snapshot_info=tk.StringVar(value='Choose a game folder to begin.')
-        header=tk.Frame(self,bg=BG);header.pack(fill='x',padx=24,pady=(19,14))
+        header=AmbientFrame(self);header.pack(fill='x',padx=24,pady=(19,14))
         mark=tk.Canvas(header,width=60,height=60,bg=BG,highlightthickness=0);mark.pack(side='left',padx=(0,17))
-        surface(mark,60,60,'#168ff8','#36aaff',18,('#2caeff','#0879ef'));icon(mark,'cube',15,14,31,'#e4f5ff',1.6)
-        title=tk.Frame(header,bg=BG);title.pack(side='left')
-        self.label(title,'XCI / NSP Builder',size=26,bold=True).pack(anchor='w')
-        self.label(title,'Nintendo Switch 2',size=12,color='#aec6e9').pack(anchor='w',pady=(0,2))
-        self.help_btn=Button(header,'Notes & compatibility',self.notes,self.motion,width=192,quiet=True,kind='info');self.help_btn.pack(side='right')
-        self.emulator_patch_btn=Button(header,'Emulator patch',self.emulator_patch,self.motion,width=156,quiet=True,kind='plus');self.emulator_patch_btn.pack(side='right',padx=(0,10))
-        footer=tk.Frame(self,bg=BG);footer.pack(side='bottom',fill='x')
+        self._ambient.register(mark);icon(mark,'app',0,0,60)
+        title=AmbientFrame(header,width=355,height=60);title.pack(side='left')
+        title.create_text(0,0,text='NSP Box',anchor='nw',fill=TEXT,font=ui_font(26,True))
+        title.create_text(1,42,text='Nintendo Switch 2 · games & DLC',anchor='nw',fill='#aec6e9',font=ui_font(11))
+        self.help_btn=Button(header,'Notes & compatibility',self.notes,self.motion,width=192,quiet=True,kind='notes');self.help_btn.pack(side='right')
+        self.emulator_patch_btn=Button(header,'Emulator patch',self.emulator_patch,self.motion,width=156,quiet=True,kind='emulator-patch');self.emulator_patch_btn.pack(side='right',padx=(0,10))
+        tabs=AmbientFrame(self);tabs.pack(fill='x',padx=24,pady=(0,10))
+        self.game_tab_button=Button(tabs,'Game',lambda:self.show_tab('game'),self.motion,width=112,height=36,primary=True,kind='game')
+        self.game_tab_button.pack(side='left',padx=(0,8))
+        self.dlc_tab_button=Button(tabs,'DLC',lambda:self.show_tab('dlc'),self.motion,width=108,height=36,quiet=True,kind='dlc')
+        self.dlc_tab_button.pack(side='left')
+        footer=AmbientFrame(self);footer.pack(side='bottom',fill='x')
+        self.game_footer=footer
         self.progressbar=Progress(footer,self.motion);self.progressbar.pack(fill='x')
-        action=tk.Frame(footer,bg=BG);action.pack(fill='x',padx=24,pady=(16,18))
+        action=AmbientFrame(footer);action.pack(fill='x',padx=24,pady=(16,18))
         self.status_icon=Status(action,self);self.status_icon.pack(side='left',padx=(0,12))
-        status=tk.Frame(action,bg=BG);status.pack(side='left',fill='x',expand=True)
+        status=AmbientFrame(action);status.pack(side='left',fill='x',expand=True)
         self.label(status,var=self.status,bold=True,size=11,anchor='w').pack(anchor='w')
         self.detail_label=self.label(status,var=self.detail,color=MUTED,size=9,anchor='w');self.detail_label.pack(anchor='w',pady=(3,0))
-        self.build_btn=Button(action,'Build XCI',self.start,self.motion,width=155,height=47,kind='cube',primary=True);self.build_btn.pack(side='right',padx=(10,0))
-        self.cancel_btn=Button(action,'Cancel',self.cancel,self.motion,width=105,height=47,state='disabled');self.cancel_btn.pack(side='right',padx=(10,0))
-        self.open_btn=Button(action,'Open output folder',self.open_output,self.motion,width=190,height=47,kind='folder',state='disabled');self.open_btn.pack(side='right',padx=(12,0))
-        area=tk.Frame(self,bg=BG);area.pack(fill='both',expand=True,padx=20,pady=(0,12));self.content_area=area;self._compact=False
+        self.build_btn=Button(action,'Build NSP',self.start,self.motion,width=155,height=47,kind='build',primary=True);self.build_btn.pack(side='right',padx=(10,0))
+        self.cancel_btn=Button(action,'Cancel',self.cancel,self.motion,width=105,height=47,kind='cancel',state='disabled');self.cancel_btn.pack(side='right',padx=(10,0))
+        self.open_btn=Button(action,'Open output folder',self.open_output,self.motion,width=190,height=47,kind='open-output',state='disabled');self.open_btn.pack(side='right',padx=(12,0))
+        area=AmbientFrame(self);area.pack(fill='both',expand=True,padx=20,pady=(0,12));self.content_area=area;self._compact=False
         area.grid_columnconfigure(0,weight=1);area.grid_columnconfigure(1,minsize=270)
         area.grid_rowconfigure(0,weight=1,minsize=255);area.grid_rowconfigure(1,minsize=186);area.grid_rowconfigure(2,minsize=185)
         self.panels=[]
         game=Panel(area);game.grid(row=0,column=0,sticky='nsew',padx=(0,12),pady=(0,10));self.panels.append(game)
-        self.heading(game.inner,'Game files','folder')
+        self.heading(game.inner,'Game files','game-files')
         self.drop_zone=DropZone(game.inner,self)
-        self.browse=Button(self.drop_zone,'Browse folder',self.pick_folder,self.motion,width=172,height=37,kind='folder')
+        self.browse=Button(self.drop_zone,'Browse folder',self.pick_folder,self.motion,width=172,height=37,kind='browse-folder')
         self.browse.place(relx=.5,rely=1,anchor='s',y=-12)
         # Pack the fixed-height editor first so the expanding drop target cannot
         # consume its allocation and leave just a sliver of placeholder text.
@@ -451,7 +534,7 @@ class Layout:
         self.folder_entry.bind('<Return>',lambda e:self.scan())
         self.drop_zone.pack(fill='both',expand=True)
         details=Panel(area);details.grid(row=1,column=0,sticky='nsew',padx=(0,12),pady=(0,10));self.panels.append(details)
-        self.heading(details.inner,'Game details','game')
+        self.heading(details.inner,'Game details','game-details')
         fields=tk.Frame(details.inner,bg=PANEL);fields.pack(fill='x')
         for col,weight in enumerate((22,17,10)):
             fields.grid_columnconfigure(col,weight=weight)
@@ -468,57 +551,53 @@ class Layout:
         self.combo=Combo(snapshot,textvariable=self.snapshot_label,state='readonly',font=ui_font(9));self.combo.pack(side='left',fill='x',expand=True)
         self.combo.bind('<<ComboboxSelected>>',lambda e:self.select_snapshot())
         out=Panel(area);out.grid(row=2,column=0,sticky='nsew',padx=(0,12));self.panels.append(out)
-        self.heading(out.inner,'Output','file')
+        self.heading(out.inner,'NSP output','save-output')
         outrow=tk.Frame(out.inner,bg=PANEL);outrow.pack(fill='x')
-        self.format_combo=Combo(outrow,textvariable=self.output_format,state='readonly',width=5,values=('XCI','NSP'))
-        self.format_combo.configure(width=96,height=41)
-        self.format_combo.pack(side='left',padx=(0,9))
         self.out_entry=Entry(outrow,textvariable=self.output,placeholder='Choose where to save your package');self.out_entry.pack(side='left',fill='x',expand=True)
-        self.save_btn=Button(outrow,'',self.pick_output,self.motion,width=45,height=39,kind='folder');self.save_btn.pack(side='right',padx=(7,0))
-        self.verify_check=Check(out.inner,text='Verify after building',variable=self.verify);self.verify_check.pack(anchor='w',pady=(10,0))
-        self.package_folder_check=Check(out.inner,text='Create package folder',variable=self.package_folder);self.package_folder_check.pack(anchor='w',pady=(5,0))
+        self.save_btn=Button(outrow,'',self.pick_output,self.motion,width=45,height=39,kind='save-output');self.save_btn.pack(side='right',padx=(7,0))
+        self.verify_check=Check(out.inner,text='Verify after building',variable=self.verify,kind='verify');self.verify_check.pack(anchor='w',pady=(10,0))
+        self.package_folder_check=Check(out.inner,text='Create package folder',variable=self.package_folder,kind='package-folder');self.package_folder_check.pack(anchor='w',pady=(5,0))
         art=Panel(area);art.grid(row=0,column=1,rowspan=2,sticky='nsew',pady=(0,10));self.panels.append(art)
-        self.heading(art.inner,'Cover art','image')
+        self.heading(art.inner,'Cover art','cover-art')
         self.preview=Cover(art.inner,self);self.preview.pack(fill='both',expand=True,pady=(1,12))
         artrow=tk.Frame(art.inner,bg=PANEL);artrow.pack(fill='x')
-        self.art_btn=Button(artrow,'Add artwork',self.pick_art,self.motion,kind='plus',height=44,width=145);self.art_btn.pack(side='left',fill='x',expand=True)
-        self.paste_art_btn=Button(artrow,'Paste',self.paste_art,self.motion,kind='clipboard',height=44,width=83);self.paste_art_btn.pack(side='right',padx=(8,0))
+        self.art_btn=Button(artrow,'Add artwork',self.pick_art,self.motion,kind='add-artwork',height=44,width=145);self.art_btn.pack(side='left',fill='x',expand=True)
+        self.paste_art_btn=Button(artrow,'Paste',self.paste_art,self.motion,kind='paste',height=44,width=83);self.paste_art_btn.pack(side='right',padx=(8,0))
         self.art_name=tk.StringVar(value='256 × 256 square icon')
         self.label(art.inner,var=self.art_name,color=MUTED,size=9,wraplength=235,anchor='w',justify='left').pack(anchor='w',pady=(10,2))
         arttools=tk.Frame(art.inner,bg=PANEL);arttools.pack(fill='x')
         self.crop_art_btn=Button(arttools,'Crop icon',self.crop_art,self.motion,width=124,height=31,quiet=True,kind='crop',state='disabled');self.crop_art_btn.pack(side='left')
-        self.clear_art_btn=Button(arttools,'Remove',self.clear_art,self.motion,width=99,height=31,quiet=True,kind='close');self.clear_art_btn.pack(side='right')
-        small=tk.Frame(area,bg=BG);small.grid(row=2,column=1,sticky='nw',padx=7,pady=8)
+        self.clear_art_btn=Button(arttools,'Remove',self.clear_art,self.motion,width=99,height=31,quiet=True,kind='remove-artwork');self.clear_art_btn.pack(side='right')
+        small=AmbientFrame(area);small.grid(row=2,column=1,sticky='nw',padx=7,pady=8)
         self.label(small,'Switch 2: set emulator memory to 12 GiB.',color=MUTED,size=9,wraplength=245,justify='left').pack(anchor='w')
         self.label(small,'Separate DLC and patch files\nare not merged automatically.',color='#738aaa',size=9,justify='left').pack(anchor='w',pady=(5,8))
         self.bind('<Configure>',self.resized,add=True)
-        self.after(60,self.enter_panels)
-        self._drops=None;self.after(100,self.setup_drops)
+        self._visual_jobs=set();self.defer_visual(60,self.enter_panels)
+        self._drops=None;self.defer_visual(100,self.setup_drops)
         self._window_icon=ImageTk.PhotoImage(self.draw_app_icon())
         self.iconphoto(True,self._window_icon)
 
     def draw_app_icon(self):
-        # App-owned icon, never Nintendo artwork.
-        from PIL import ImageDraw
-        factor=4;im=Image.new('RGBA',(128*factor,128*factor),(0,0,0,0));d=ImageDraw.Draw(im)
-        d.rounded_rectangle((8,8,504,504),radius=116,fill='#168ff8')
-        points=[(64,23),(101,43),(101,86),(64,106),(27,86),(27,43),(64,23),(64,65),(101,43)]
-        d.line([(x*factor,y*factor) for x,y in points],fill='#edf4ff',width=5*factor,joint='curve')
-        d.line([(x*factor,y*factor) for x,y in [(27,43),(64,65),(64,106)]],fill='#edf4ff',width=5*factor,joint='curve')
-        return im.resize((256,256),Image.Resampling.LANCZOS)
+        return icon_art('app',256,TEXT,1.7).copy()
 
-    def enter_panels(self):
-        for i,panel in enumerate(self.panels):
+    def defer_visual(self,delay,callback):
+        def run():
+            self._visual_jobs.discard(job)
+            if not self.motion.closed:callback()
+        job=self.after(delay,run);self._visual_jobs.add(job)
+
+    def enter_panels(self,panels=None):
+        for i,panel in enumerate(self.panels if panels is None else panels):
             def start(p=panel):
                 def step(t):
                     if p.winfo_exists():p.coords(p.inner_id,15,14+10*(1-t))
-                self.motion.to((id(p),'entrance'),0,1,.32,step)
-            self.after(i*40,start)
+                self.motion.to((id(p),'entrance'),0,1,.42,step)
+            self.defer_visual(i*35,start)
 
     def resized(self,event):
         if event.widget is self and hasattr(self,'detail_label'):
             self.detail_label.configure(wraplength=max(220,event.width-620))
-            compact=event.height<810
+            compact=event.height<860
             if compact!=self._compact:
                 self._compact=compact
                 self.drop_zone.configure(height=95 if compact else 150)
@@ -533,6 +612,18 @@ class Layout:
             self.drop_zone.draw()
 
     def receive_drop(self,paths):
+        if getattr(self,'active_tab','game')=='dlc':
+            panel=self.dlc_panel
+            if panel.busy:return
+            if len(paths)==1 and Path(paths[0]).is_dir():
+                panel.folder.set(str(paths[0]));panel.title_id.set('');panel.scan()
+            elif len(paths)==1 and Path(paths[0]).suffix.lower() =='.nsp':
+                panel.base_game.set(str(paths[0]))
+                if panel.folder.get().strip():panel.scan()
+            else:
+                from tkinter import messagebox
+                messagebox.showinfo('DLC input','Drop one extracted DLC folder or a base-game NSP.',parent=self)
+            return
         if self.busy or self.scanning:return
         if len(paths)!=1:
             from tkinter import messagebox

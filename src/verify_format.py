@@ -1,4 +1,4 @@
-"""Independent mmap reader for the produced XCI and its embedded files."""
+"""Independent mmap reader for produced NSP files and embedded content."""
 import hashlib,json,mmap,struct,sys,time
 from pathlib import Path
 from contextlib import closing

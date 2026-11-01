@@ -23,13 +23,12 @@ class PackagingTests(unittest.TestCase):
 
     def test_round_trip_dynamic_title_and_version(self):
         snapshots,_=engine.find_snapshots(self.game);self.assertEqual([s.version for s in snapshots],[131072,65536])
-        out=self.root/'Example.xci';result=engine.build(snapshots[0],out,'Example 日本語','2.0',self.art)
+        out=self.root/'Example.nsp';result=engine.build(snapshots[0],out,'Example 日本語','2.0',self.art)
         self.assertTrue(result['verified']);self.assertEqual(result['source_file_count'],4)
         self.assertEqual(result['title_id'],'0400111122220000');self.assertTrue(out.is_file())
-        self.assertFalse(out.with_suffix('.xci.report.json').exists());self.assertIsNone(result['switch2_companion'])
+        self.assertFalse(out.with_suffix('.nsp.report.json').exists());self.assertIsNone(result['switch2_companion'])
         with out.open('rb') as f, mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ) as mm:
-            buf=verify.Region(mm);top=verify.partition(buf,verify.u('Q',buf,0x130)[0])
-            contents=verify.partition(top['secure'])
+            buf=verify.Region(mm);contents=verify.partition(buf)
             control=next(verify.nca_sections(b) for b in contents.values() if b[0x205]==2)
             packed=verify.romfs_files(control[2][0][1])
             self.assertEqual(bytes(packed['icon_AmericanEnglish.dat']),engine.artwork_bytes(self.art))
@@ -38,14 +37,14 @@ class PackagingTests(unittest.TestCase):
             self.assertEqual(nacp[0x3060:0x3070].split(b'\0')[0],b'2.0')
 
     def test_existing_output_unchanged(self):
-        snapshots,_=engine.find_snapshots(self.game);out=self.root/'Existing.xci';out.write_bytes(b'existing')
+        snapshots,_=engine.find_snapshots(self.game);out=self.root/'Existing.nsp';out.write_bytes(b'existing')
         with self.assertRaises(FileExistsError):engine.build(snapshots[0],out,'Example','1')
         self.assertEqual(out.read_bytes(),b'existing')
 
     def test_cancel_removes_partial(self):
-        snapshots,_=engine.find_snapshots(self.game);out=self.root/'Cancelled.xci';cancel=threading.Event()
+        snapshots,_=engine.find_snapshots(self.game);out=self.root/'Cancelled.nsp';cancel=threading.Event()
         def progress(stage,value):
-            if stage=='Writing XCI':cancel.set()
+            if stage=='Writing NSP':cancel.set()
         with self.assertRaises(InterruptedError):engine.build(snapshots[0],out,'Example','1',notify=progress,cancel=cancel)
         self.assertFalse(out.exists());self.assertEqual(list(self.root.glob('*.partial')),[])
 
@@ -57,11 +56,11 @@ class PackagingTests(unittest.TestCase):
         snapshots,_=engine.find_snapshots(self.game)
         for p in (snapshots[0].root/'romfs').rglob('*'):
             if p.is_file():p.unlink()
-        with self.assertRaisesRegex(ValueError,'empty'):engine.build(snapshots[0],self.root/'Empty.xci','Example','1')
+        with self.assertRaisesRegex(ValueError,'empty'):engine.build(snapshots[0],self.root/'Empty.nsp','Example','1')
 
     def test_output_in_romfs_rejected(self):
         snapshots,_=engine.find_snapshots(self.game)
-        with self.assertRaisesRegex(ValueError,'outside'):engine.build(snapshots[0],snapshots[0].root/'romfs'/'bad.xci','Example','1')
+        with self.assertRaisesRegex(ValueError,'outside'):engine.build(snapshots[0],snapshots[0].root/'romfs'/'bad.nsp','Example','1')
 
     def test_artwork_fit_and_alpha(self):
         import io

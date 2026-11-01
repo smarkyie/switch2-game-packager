@@ -23,7 +23,8 @@ class InterfaceTests(unittest.TestCase):
         self.app.report_callback_exception=lambda *args:self.errors.append(args)
         self.pump(.5)
     def tearDown(self):
-        self.app.close();self.tmp.cleanup()
+        if self.app is not None:self.app.close()
+        self.tmp.cleanup()
     def pump(self,seconds):
         end=time.monotonic()+seconds
         while time.monotonic()<end:self.app.update();time.sleep(.008)
@@ -56,11 +57,11 @@ class InterfaceTests(unittest.TestCase):
         app.verify_check.invoke();self.assertFalse(app.verify.get())
         app.verify_check.invoke();self.assertTrue(app.verify.get())
         self.assertTrue(app.package_folder.get());app.package_folder_check.invoke()
-        out=self.root/'Built.xci';app.output.set(str(out));app.build_btn.invoke()
+        out=self.root/'Built.nsp';app.output.set(str(out));app.build_btn.invoke()
         self.assertTrue(app.busy);self.assertFalse(app.browse.enabled);self.assertTrue(app.cancel_btn.enabled)
         self.until(lambda:not app.busy,timeout=10)
         self.assertTrue(out.is_file());self.assertTrue(app.open_btn.enabled)
-        self.assertFalse(out.with_suffix('.xci.report.json').exists());self.assertFalse((out.parent/'main.npdm').exists())
+        self.assertFalse(out.with_suffix('.nsp.report.json').exists());self.assertFalse((out.parent/'main.npdm').exists())
         self.assertEqual(app.last_output,out)
         app.notes();self.pump(.06)
         self.assertTrue(any(w.winfo_class()=='Toplevel' for w in app.winfo_children()))
@@ -73,7 +74,7 @@ class InterfaceTests(unittest.TestCase):
         checkbox=app.package_folder_check;parent=checkbox.master
         self.assertEqual(checkbox.winfo_height(),25)
         self.assertLessEqual(checkbox.winfo_rooty()+checkbox.winfo_height(),parent.winfo_rooty()+parent.winfo_height())
-        for widget in (app.verify_check,app.package_folder_check,app.folder_entry,app.combo,app.format_combo,app.version_entry,app.clear_art_btn,app.crop_art_btn,app.paste_art_btn,app.build_btn,app.help_btn):
+        for widget in (app.verify_check,app.package_folder_check,app.folder_entry,app.combo,app.version_entry,app.clear_art_btn,app.crop_art_btn,app.paste_art_btn,app.build_btn,app.help_btn):
             self.assertTrue(widget.winfo_ismapped(),str(widget))
             self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),app.winfo_rooty()+app.winfo_height())
             self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),app.content_area.winfo_rooty()+app.content_area.winfo_height()) if widget not in (app.build_btn,app.help_btn) else None
@@ -93,27 +94,73 @@ class InterfaceTests(unittest.TestCase):
             self.assertEqual(app.browse.cget('bg'),'#192b43',geometry)
         self.assertFalse(self.errors)
 
-    def test_format_selection_path_and_nsp_build(self):
-        app=self.app;app.output_format.set('NSP')
+    def test_nsp_only_path_build_and_brand(self):
+        app=self.app
+        self.assertEqual(app.title(),'NSP Box');self.assertFalse(hasattr(app,'format_combo'))
+        self.assertFalse(hasattr(app.dlc_panel,'format_combo'))
         self.shell_drop(self.game);self.until(lambda:len(app.snapshots)==2 and not app.scanning)
         self.assertTrue(app.output.get().endswith('.nsp'))
         out=self.root/'Custom destination.nsp';app.output.set(str(out))
-        app.format_combo.current(0);app.format_combo.entry.event_generate('<<ComboboxSelected>>');self.pump(.04)
-        self.assertEqual(app.output.get(),str(out.with_suffix('.xci')))
-        app.format_combo.current(1);app.format_combo.entry.event_generate('<<ComboboxSelected>>');self.pump(.04)
-        self.assertEqual(app.output.get(),str(out));self.assertEqual(app.build_btn.text,'Build NSP')
+        self.assertEqual(app.build_btn.text,'Build NSP')
         self.assertTrue(app.package_folder.get())
         app.set_art(self.art);app.build_btn.invoke()
         self.assertFalse(app.package_folder_check.enabled)
-        self.assertEqual(str(app.format_combo.entry.cget('state')),'disabled')
         self.until(lambda:not app.busy,timeout=10)
         actual=out.parent/out.stem/out.name
         self.assertTrue(actual.is_file());self.assertEqual(app.last_output,actual)
         self.assertTrue(app.package_folder_check.enabled);self.assertEqual(app.status.get(),'NSP ready')
-        self.assertEqual(str(app.format_combo.entry.cget('state')),'readonly')
         report=json.loads(actual.with_suffix('.nsp.report.json').read_text())
-        self.assertEqual(report['output_format'],'NSP');self.assertTrue(report['verified'])
+        self.assertEqual(report['app'],'NSP Box');self.assertEqual(report['output_format'],'NSP');self.assertTrue(report['verified'])
         self.assertFalse(self.errors)
+
+    def test_icon_assets_and_ambient_lifecycle(self):
+        from ui import ASSET_DIR, icon_art, TEXT
+        app=self.app;ambient=app._ambient
+        files=list(ASSET_DIR.glob('*.png'));self.assertEqual(len(files),22)
+        for path in files:
+            with Image.open(path) as image:
+                self.assertEqual(image.mode,'RGBA')
+        self.assertEqual(app.draw_app_icon().tobytes(),icon_art('app',256,TEXT,1.7).tobytes())
+        self.assertEqual(app.dlc_tab_button.kind,'dlc')
+        self.assertEqual(app.emulator_patch_btn.kind,'emulator-patch')
+        self.assertNotEqual(app.art_btn.kind,app.paste_art_btn.kind)
+        app.motion.enabled=True;self.pump(.2)
+        before=ambient.frame_count;first=ambient.frame.copy();self.pump(.25)
+        self.assertGreater(ambient.frame_count,before)
+        self.assertEqual(ambient.frame.size,(app.winfo_width(),app.winfo_height()))
+        # Reconfigure after the first ambient frame, as happens during frozen
+        # startup. Its opaque image must never cover the rounded panel surface.
+        from types import SimpleNamespace
+        for panel in app.panels:
+            panel.resize(SimpleNamespace(width=panel.winfo_width(),height=panel.winfo_height()))
+            stack=list(panel.find_all())
+            self.assertLess(stack.index(panel.find_withtag('ambient')[0]),
+                            stack.index(panel.find_withtag('surface')[0]))
+        app.motion.enabled=False;self.pump(.12)
+        before=ambient.frame_count;self.pump(.30)
+        self.assertEqual(ambient.frame_count,before)
+        app.motion.enabled=True;app.show_tab('dlc');self.pump(.45)
+        self.assertTrue(app.dlc_panel.winfo_ismapped())
+        self.assertAlmostEqual(app.dlc_tab_button.selection,1.)
+        app.show_tab('game');self.pump(.45)
+        self.assertAlmostEqual(app.game_tab_button.selection,1.)
+        self.assertFalse(self.errors)
+
+    def test_motion_retargets_and_icon_cache_stays_bounded(self):
+        from ui import _PHOTO_CACHES, surface_art
+        app=self.app;button=app.art_btn;app.motion.enabled=True
+        button.hover(1);self.pump(.07)
+        self.assertGreater(button.hot,0);self.assertLess(button.hot,1)
+        button.hover(0);self.pump(.3);self.assertAlmostEqual(button.hot,0)
+        cache=_PHOTO_CACHES[app];before=len(cache)
+        for _ in range(25):button.draw()
+        self.assertEqual(len(cache),before)
+        self.assertLessEqual(surface_art.cache_info().currsize,96)
+        ambient=app._ambient;app.close()
+        self.assertIsNone(ambient.job);self.assertTrue(ambient.closed)
+        self.assertFalse(app.motion.jobs)
+        # This case closes explicitly to verify timer cleanup.
+        self.app=None
 
     def test_crop_dialog_and_clipboard(self):
         app=self.app
@@ -176,6 +223,13 @@ class InterfaceTests(unittest.TestCase):
         app=self.app;app.emulator_patch_btn.invoke();self.pump(.08)
         dialog=app._emulator_dialog
         self.assertTrue(dialog.winfo_exists());self.assertFalse(dialog.apply_button.enabled)
+        for name in ('build 98','build-99','build 96','2.1.0a','2.0.0'):
+            self.assertIn(name,dialog.supported_text)
+        for geometry in ('780x760','740x720'):
+            dialog.geometry(geometry);self.pump(.05)
+            bottom=dialog.winfo_rooty()+dialog.winfo_height()
+            self.assertLessEqual(dialog.supported_label.winfo_rooty()+dialog.supported_label.winfo_height(),bottom)
+            self.assertLessEqual(dialog.apply_button.winfo_rooty()+dialog.apply_button.winfo_height(),bottom)
         view={'folder':str(self.root),'files':[{'build':'Synthetic compatible fork','file':'future.exe','status':'experimental'}],
               'can_apply':True,'can_remove':False}
         with patch('emulator_patch.inspect',return_value=view):

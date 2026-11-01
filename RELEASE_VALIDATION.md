@@ -1,44 +1,46 @@
 # Validation and compatibility
 
-## Automated checks
+## NSP Box 3.0
 
-### 2.0 release checks
+The release requires all **64 unit/UI/native tests**, **nine frozen NSP packaging
+cases** and a **four-drop frozen native file-drop/clean-shutdown check**. Fixtures
+are synthetic and contain no game data. PNG, WEBP, ICO and AVIF artwork are checked
+in single-file and package-folder game modes, plus a separate DLC NSP case.
 
-All 51 unit/UI/native tests and all 16 frozen Windows XCI/NSP packaging checks passed for 2.0.0. The Windows 2.0 release includes the corrected 1.5.1 native probe. No Linux build is included. User-provided Mario Kart World logs from NSP and loose-folder runs both select 12 GiB, the 31.25 MHz timer and identical settings/module builds. The second run had a warmer shader cache; no FPS/frame-time data was logged, so no format performance advantage is claimed. The user reported the corrected patch working.
+The drag-and-drop crash in issue #2 was reproduced on Windows in the real Tk
+mainloop before the fix. Native callbacks now queue paths without calling Tcl/Tk;
+normal Tk timers handle the dropped files. Regression coverage includes repeated
+folder/image drops and Unicode WEBP filenames.
 
-### Local 1.5.1 correction
+The Game/DLC tabs and emulator patch dialog were inspected visually. UI checks
+cover minimum-size control visibility, artwork paste/crop, tab transitions, icon
+cache reuse, gradient layering, reduced-motion behavior and timer cleanup.
+The ambient layer shares one Tk image across canvases and pauses when minimized.
+All 22 PNG assets have RGBA transparency and no embedded PNG metadata.
 
-All 51 unit/UI/native tests and 16 frozen Windows packaging cases passed for
-1.5.1. The 1.5.0 simulated VFS callbacks modeled PokeDinner's Read method incorrectly.
-Real null-render startup checks reproduced 19.2 MHz with the old patch and 31.25
-MHz with the corrected patch, equal to the external-NPDM path. Standard Eglantine
-also passed this real-startup comparison. Unmodified PGO failed before log
-initialization in this environment, so its full-startup comparison remains
-unverified. Unit coverage adds legacy-patch recovery and metadata-reader slot
-validation. See `EMULATOR_PATCH.md` and `native/check_emulator_startup.py`.
+## Emulator patch checks
 
-Local 1.5.0 passed all **49 synthetic tests and 16 frozen Windows XCI/NSP checks**, including nine PE/native-probe tests and the emulator patch dialog check. All six reviewed emulator GUI/CLI hook implementations were executed in isolated mappings with Switch 1/2 XCI, NSP and NCA fixtures (36 hook cases); apply/check/remove restored all six workspace copies byte-for-byte. Forward recognition also found the same loader code after non-code build-header changes, including relocated-address normalization in synthetic tests. Windows' own ImageHlp API validated all six patched PE checksums. Those automated checks used workspace emulator copies and synthetic inputs. See `EMULATOR_PATCH.md`.
+All 16 exact Windows x64 GUI/CLI profiles have patch/remove restoration coverage.
+The ten added executable variants passed exact restoration and 60 isolated native
+hook cases. Standard Eglantine 98/build-99 and PokeDinner 2.1.0a startup comparisons
+selected 31.25 MHz with the patch, matching their external-companion paths.
+Unmodified PGO CLI startup failed with 0xC0000008 in the test environment, so full
+PGO startup or gameplay compatibility is not claimed. No emulator binaries ship
+with NSP Box. See [supported targets and limits](EMULATOR_PATCH.md).
 
-Local 1.4.5 testing passed all 39 synthetic tests and all 16 frozen Windows XCI/NSP checks. Folder-path visibility and text/button separation were checked at 1160×830, 1010×780 and 1280×960. The GUI was also inspected visually. Linux shell syntax was checked, but no Linux runtime was available; Linux execution, GUI behavior and native binary compatibility remain unverified. These were local pre-release checks.
+## Real-world limits
 
-The release workflow requires all 51 synthetic tests, a Windows portable build, and 16 packaged-EXE checks covering PNG, WEBP, ICO and AVIF artwork in both XCI and NSP with single-file and package-folder output. Fixtures contain no game content.
+A user installed a Bananza DLC NSP in PokeDinner 2.0.0 and confirmed in-game
+recognition. This is one successful test, not universal DLC compatibility.
+Actual game data and original title IDs are required; generated metadata cannot
+recreate missing game services or original required-update information.
 
-Coverage includes payload and metadata round trips, integrity/corruption checks, source changes, cancellation cleanup, refusal to overwrite existing files, artwork crop/clipboard/drop behavior, companion preservation and explicit compatibility setup.
+Set emulator memory to 12 GiB before testing Switch 2 packages. Without the patch,
+an external exact `main.npdm` can still be needed for the checked loader's early
+Switch 2 memory/clock selection. 12 GiB alone may boot with incorrect timing and
+reduced performance. Integrity checks do not guarantee booting, gameplay or FPS.
 
-## Launch checks and their limits
-
-Limited rendering checks were performed with PokeDinner 2.0.0 (commit `70ecb39ef0`) using the exact snapshot's external `main.npdm` companion and plaintext compatibility entries. Packages reached game screens. These checks do not establish full gameplay, performance, support for other emulator versions or companion-free booting.
-
-Without that companion or the new emulator patch, the checked original loader selected the Switch 1 memory layout and clock before reading the embedded Switch 2 metadata. Exits/crashes were observed. This is a known limitation; passing package verification does not resolve it.
-
-Earlier package checks established structural integrity and executable loading, not successful game boot. They should not be read as gameplay compatibility claims.
-
-## Versions 1.4.3–1.4.4
-
-A user reported booting without an external companion in PokeDinner 2.0.0 after selecting 12 GiB RAM. The original manual-test profile was also configured for 12 GiB; later failing tests used 4 GiB. This is evidence for a settings-dependent alternative, not automatic container detection or universal game support.
-
-The same user subsequently reported considerably lower performance without the external companion. No controlled FPS comparison was performed. The caution recommends retaining the companion; package-folder output remains enabled by default.
-
-The GUI now displays a startup caution with this guidance. Package-folder output is on by default and retains the companion workaround and report; unchecking it saves only the XCI/NSP. Automated coverage checks both modes, verification on/off, CLI behavior and remembered dismissal.
-
-A clean Windows VM without Python was not available for the original portability checks. The EXE bundles its runtime, but compatibility with every Windows installation is not established.
+Windows x64 is the only shipped binary target. A clean Windows installation
+without Python and every graphics driver/emulator configuration have not been
+tested. This is experimental software with limited real-world testing; please
+[report reproducible problems](https://github.com/smarkyie/switch2-game-packager/issues/new).
