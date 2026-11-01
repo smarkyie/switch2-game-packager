@@ -33,7 +33,7 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install -r requirements-build.txt
       - name: Run synthetic tests
-        run: python -m unittest test_engine test_ui test_artwork test_performance_safety test_nsp test_compatibility
+        run: python -m unittest test_engine test_ui test_artwork test_performance_safety test_nsp test_compatibility test_emulator_patch
       - name: Build portable executable
         run: python -m PyInstaller --noconfirm --clean Packager.spec
       - name: Check frozen XCI and NSP builds
