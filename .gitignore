@@ -23,3 +23,5 @@ __pycache__/
 prod.keys*
 title.keys*
 
+.venv-linux/
+local-linux-build/

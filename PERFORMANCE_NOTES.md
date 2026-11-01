@@ -2,7 +2,9 @@
 
 ## Emulator runtime caution
 
-Considerably lower runtime performance was reported in PokeDinner when using a single package without an external `main.npdm`, even after selecting 12 GiB RAM. This is a user-reported observation, not a controlled FPS benchmark. Keep the companion beside the package for the recommended setup; **Create package folder** is enabled by default. Packaging speed and emulator gameplay performance are separate concerns.
+Without the emulator patch, selecting 12 GiB alone can boot a package with Switch 1 timing and reduced performance; keep the exact external `main.npdm` for that unpatched setup. Version 2.0's corrected emulator patch reads embedded metadata and selects the same 31.25 MHz startup timer as the external-file path in checked PokeDinner/Eglantine builds. A separate companion is not needed after patching and restarting. See [patch instructions and limits](EMULATOR_PATCH.md). This does not guarantee equal FPS in every game or future emulator build.
+
+A user comparison of Mario Kart World NSP versus loose ExeFS/RomFS showed identical settings, 12 GiB memory, executable builds and 31.25 MHz timing. The second (loose-folder) run loaded more cached shader pipelines, so the comparison was affected by cache warm-up. The logs contained no FPS/frame-time measurements and do not establish a format-based performance advantage. Packaging speed and emulator gameplay performance are separate concerns.
 
 ## Packaging efficiency
 

@@ -4,6 +4,8 @@
 
 The checked PokeDinner 2.0.0 loader performs early Switch 2 detection using a `main.npdm` in the opened file's containing directory, before parsing the container's embedded ExeFS. With default settings and no companion, it selected the Switch 1 memory layout and clock and boot failures were observed. A user subsequently reported booting without the companion after selecting 12 GiB RAM; the earlier manual-test profile was also set to 12 GiB. Memory configuration can therefore bypass the observed boot failure without changing the embedded metadata. Compatibility with every game/build and correct runtime timing are not established by that boot report.
 
+Version 2.0 includes an optional reversible Windows x64 emulator patch that reads the embedded NPDM before mode selection. Supported patched loaders no longer require an external companion; real-startup checks match the external-file path's 31.25 MHz timer. This does not establish universal gameplay or FPS compatibility. See [EMULATOR_PATCH.md](EMULATOR_PATCH.md).
+
 Version 1.4.3 enables package-folder output by default. Unchecking the option saves only the XCI/NSP. Package-folder output copies the exact snapshot NPDM beside the package and records its hash in a local JSON report. It remains an early-detection workaround, rather than a universal requirement. Conflicting or concurrently created companions are preserved. Verification remains enabled independently of whether a report is written.
 
 A GUI-only startup caution describes the 12 GiB setting and experimental status. Dismissal is opt-in, versioned by notice content and stored in the application's local preferences. No emulator configuration is changed by opening or dismissing the caution.

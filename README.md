@@ -4,13 +4,15 @@
 
 A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext XCI or NSP for compatible emulators. Choose a folder, add your own artwork, select the output format, and build.
 
+**Version 2.0 adds a reversible Emulator patch panel.** Compatible Windows x64 Eglantine/PokeDinner builds can read the Switch 2 metadata already inside your XCI/NSP, so **a separate `main.npdm` beside the game is no longer needed after applying the patch and restarting the emulator**. For a single-file output, uncheck **Create package folder**. See [supported builds, installation and removal](EMULATOR_PATCH.md). This release provides Windows x64 downloads only; no Linux build is included.
+
 **Piracy is not supported.** Use only files and artwork you have lawfully obtained and are authorized to use. No games, game artwork, firmware or Nintendo keys are provided. Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo; game content belongs to its respective rights holders. This is an independent project, not affiliated with, sponsored by or endorsed by Nintendo. See [ownership and use notices](DISCLAIMER.md).
 
-> **Caution — experimental software:** set emulator memory to **12 GiB** before testing Switch 2 packages. Booting without an external `main.npdm` was reported in PokeDinner 2.0.0 with that setting. Other games/builds may differ. Verification checks package integrity, not booting or gameplay. The packager does not change emulator memory settings.
+> **Caution — experimental software:** set emulator memory to **12 GiB** before testing Switch 2 packages. The app does not change this setting. The patch is optional and only applies to recognized compatible code; it cannot add Switch 2 emulation to an unsupported emulator. Verification checks package integrity, not booting or gameplay.
 
 A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\Switch2GamePackager\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
 
-**Performance caution:** considerably lower performance was reported when running without the external `main.npdm`, even with 12 GiB selected. Keep **Create package folder** enabled and retain its companion beside the game for the recommended setup. This is a user-reported observation, not a controlled benchmark or a guarantee for other games/builds.
+**Without the emulator patch**, retain the exact game's external `main.npdm` in its own package folder. Selecting 12 GiB alone can boot with Switch 1 timing and reduced performance. The corrected patch matches external-NPDM startup timing in the checked builds; equal FPS across all games/builds is not guaranteed.
 
 Both output formats stream directly to their destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
 
@@ -25,9 +27,18 @@ Both output formats stream directly to their destination without an intermediate
 
 The app never overwrites an existing package and does not modify your source files. Cancellation removes the unfinished package. Verification works in both modes; it does not require saving a report. Allow roughly the input size plus 2% and 32 MB free disk space. Packages up to **32 GiB** are supported.
 
-With **Create package folder** enabled, `D:\Packed\Game.xci` is saved as `D:\Packed\Game\Game.xci`, with `main.npdm` and `Game.xci.report.json` beside it. The companion is an optional workaround for the checked loader's early Switch 2 memory/clock detection. Keep each game/snapshot in a separate folder if using it; a conflicting companion is refused. The exact snapshot metadata is also embedded inside the package in both modes. An external companion is not always necessary: the 12 GiB setting allowed booting without it in the reported PokeDinner test.
+With **Create package folder** enabled, `D:\Packed\Game.xci` is saved as `D:\Packed\Game\Game.xci`, with `main.npdm` and `Game.xci.report.json` beside it. The companion is an optional workaround for the checked loader's early Switch 2 memory/clock detection. Keep each game/snapshot in a separate folder if using it; a conflicting companion is refused. The exact snapshot metadata is also embedded inside the package in both modes. After applying the emulator patch, the companion is unnecessary for supported containers: the emulator reads the embedded metadata. Keep the original companion as a backup if you plan to remove the patch.
 
 XCI uses a gamecard-style wrapper; NSP uses a downloadable-content package wrapper. Both preserve the same game payloads and selected artwork. NSP has slightly less wrapper overhead; it is not compressed and does not improve gameplay speed. These outputs are unsigned plaintext emulator repacks. NSP support does not make them authenticated installable retail-console packages. Actual loading depends on the emulator fork's plaintext-content support.
+
+## Use the emulator patch
+
+1. Fully close the emulator and open **Emulator patch** in the packager header.
+2. Select the folder containing the Windows x64 Eglantine/PokeDinner executables, then **Check** and **Add patch**. Matching unverified builds offer **Try patch** with an experimental warning.
+3. Restart the emulator. Open your XCI/NSP from a folder without an external `main.npdm`. Existing packages already contain their metadata and do not need rebuilding.
+4. For new single-file outputs, uncheck **Create package folder**. It remains on by default for compatibility with unpatched emulators.
+
+The packager need not stay open while playing. **Remove patch** restores exact backed-up executable bytes; retain the emulator folder's `.s2gp-patch` directory while patched. If **Older patch** appears, remove it before adding the corrected patch. Re-check after emulator updates. Future releases/forks must match the reviewed loader and metadata-reader code; unmatched or ambiguous executables are not modified.
 
 ## Accepted folder layouts
 

@@ -1,10 +1,13 @@
 """Smoke-test frozen single-file and optional-folder output with synthetic content."""
 from pathlib import Path
-import json,struct,subprocess,tempfile,sys
+import argparse,json,struct,subprocess,tempfile,sys
 from PIL import Image
 root=Path(__file__).resolve().parent
 sys.path.insert(0,str(root/'src'))
 import engine
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--executable',type=Path)
+args=parser.parse_args()
 scratch=root/'test-work';scratch.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='frozen-',dir=scratch) as tmp:
     base=Path(tmp);game=base/'Sample Game';(game/'exefs').mkdir(parents=True);(game/'romfs').mkdir()
@@ -13,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='frozen-',dir=scratch) as tmp:
     (game/'exefs/main.npdm').write_bytes(b);(game/'exefs/main').write_bytes(b'NSO0'+bytes(256))
     (game/'romfs/example.bin').write_bytes(bytes(range(256))*512)
     snapshot=engine.find_snapshots(game)[0][0];inventory=engine.source_inventory(snapshot.root)
-    exe=root/'dist/Switch2-XCI-Packager.exe'
+    exe=(args.executable.resolve() if args.executable else root/('dist/Switch2-XCI-Packager.exe' if sys.platform=='win32' else 'dist/Switch2-XCI-Packager'))
     for folder_mode in (False,True):
         for kind in ('xci','nsp'):
             for extension,format_name in [('png','PNG'),('webp','WEBP'),('ico','ICO'),('avif','AVIF')]:

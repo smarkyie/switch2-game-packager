@@ -1,0 +1,144 @@
+# Experimental emulator patch — version 2.0
+
+Open **Emulator patch** in the packager header. Select the folder containing the
+Windows x64 emulator executable, close that emulator, then use **Add patch** (or
+**Try patch** for an unverified match). Restart it normally. To undo, select the
+same folder and choose **Remove patch**, even if the patched emulator cannot boot.
+The packager does not need to remain open when playing.
+
+**Version 2.0 includes the corrected PokeDinner probe from local testing.** Its real VFS read method
+uses a different table slot from standard Eglantine. The original probe called
+the wrong method, so a normal startup still selected 19.2 MHz even with 12 GiB.
+The corrected probe selects 31.25 MHz, matching the external-file startup path.
+If the panel shows **Older patch**, remove it with this app and then add the new
+patch. Original 1.5.0 backups/payloads remain supported for safe removal.
+
+For a new single-file package, uncheck **Create package folder**. Existing packages
+already contain their own NPDM and do not need to be rebuilt for this patch.
+For testing, use a directory without an external `main.npdm`, keeping your original
+package and companion as a backup. This feature is experimental; verify actual
+booting, rendering and performance yourself before relying on companion-free use.
+
+## Recognized builds and future updates
+
+Exact executable profiles were checked for:
+
+- [Eglantine build 96](https://github.com/Djihads80/Eglantine/releases/tag/build-96),
+  commit `e96917cd0e68851ec389dd519f03b52adc11d493`: Windows x64 standard and PGO,
+  `eglantine.exe` and `eden-cli.exe`.
+- PokeDinner 2.0.0, commit `70ecb39ef0`, the supplied Windows x64 build:
+  `eglantine.exe` and `eden-cli.exe`.
+
+The same menu also scans other executable names and future builds automatically.
+It compares normalized loader-code fingerprints: relative addresses may move,
+while stack layout, instruction shape and detection behavior must match a
+reviewed implementation. It also follows the metadata-load call and validates
+that reader's code before selecting its actual GetSize/Read virtual-method slots.
+Each match must be unique and begin at a Windows
+unwind-function boundary. A new matching build is labeled **experimental** and
+can be tried without adding a version-specific menu entry. File naming or a
+version string alone is never enough to approve a patch.
+
+This does not guarantee every future release or fork. A compiler/loader rewrite,
+different architecture, signed executable or unmatched code can require a patcher
+update. No match means no executable edits. The patch cannot add Switch 2
+emulation to an emulator that does not implement it. Linux ELF/AppImage and
+macOS/Android binaries are not supported by this Windows x64 patch.
+
+## What changes
+
+Some builds choose Switch 2 mode by looking for `main.npdm` beside the opened
+file, before inspecting a container. The patch adds a read-only native probe of
+the existing VFS file. It follows the packager's plaintext HFS0/PFS0 containers,
+Program NCA and ExeFS to identify the embedded NPDM's Switch 2 ACID layout.
+The emulator's existing Switch 2 memory, clock and hardware-mode path then runs.
+It does not force Switch 1 games into Switch 2 mode; unsupported inputs use the
+original detection code. Probe reads are bounded to 1 MiB / 8,192 calls with
+offset, count and nesting checks. Encrypted retail containers are not decoded.
+
+A small read/execute section and Windows unwind records are added to each
+recognized executable, and a reviewed detection hook redirects to it. No DLL,
+launcher or extra metadata file is required beside the game. No game, save,
+firmware, key, registry, emulator setting or global environment variable is edited.
+Existing key configuration requirements still apply.
+
+## Backups and removal
+
+`<emulator folder>/.s2gp-patch/` stores exact originals (`*.exe.original`), a hash
+manifest and an OS-managed operation lock. The manifest is saved before any
+executable changes. A partial failure rolls back already replaced executables.
+If the packager process exits mid-operation, OS locks release and the next run
+can recognize each original/patched file independently for recovery.
+
+Removal checks both the current patched executable and its backup before
+restoring exact original bytes. Original backups are retained after removal.
+If you overwrite or modify the emulator after patching, removal refuses to
+overwrite those newer changes. Re-select/re-check after installing an update;
+do not mix backups between folders or delete `.s2gp-patch` while patched.
+The emulator must be closed; an in-use file can prevent replacement.
+
+## Validation and its limits
+
+Synthetic native probe checks cover both Windows C++ VFS ABIs, Switch 1 and
+Switch 2 metadata, XCI/NSP/NCA and malformed/truncated input. The actual patched
+GUI and CLI hook code was executed in isolated mappings of all six recognized
+executables, with synthetic VFS callbacks. Transaction tests cover exact restore,
+repeat apply/remove, partial failures, changed backups, manifest path rejection,
+locks and forward-match ambiguity. These are detection/transaction checks,
+**not a game-boot or performance benchmark**. Installed emulators were not altered.
+
+The original simulated-VFS tests missed PokeDinner's different read slot. The new
+real-startup integration check reproduces that failure and checks the corrected
+path using actual emulator file objects:
+
+| PokeDinner 2.0.0 startup | Guest counter |
+|---|---:|
+| Original, manual 12 GiB, no external NPDM | 19,200,000 Hz |
+| Original 1.5.0 patch, no external NPDM | 19,200,000 Hz |
+| Original emulator with external NPDM | 31,250,000 Hz |
+| Corrected patch in 2.0, no external NPDM | 31,250,000 Hz |
+
+Standard Eglantine build 96 also passes the original/companion/corrected startup
+comparison. The PGO package could not start its unmodified CLI in this test
+environment before writing a log; its reviewed ABI and native probe checks remain
+covered, but a full PGO startup comparison is not claimed here. These checks use
+null rendering and deliberately invalid synthetic executables; expected ROM-load
+failure after mode selection is not a gameplay failure. No FPS comparison is claimed.
+
+## Source and rebuilding
+
+`src/emulator_patch.py` handles recognition, PE updates, backups and restoration;
+`src/emulator_dialog.py` provides the UI. `native/container_probe.c` is the original
+MIT-licensed probe; `src/emulator_payloads.py` contains its compressed compiled
+images. Loader fingerprints contain hashes, normalization masks and generic ABI
+prologue anchors, rather than full emulator functions. No upstream emulator
+binary or proprietary game code is bundled.
+
+To regenerate the native payload with a build Python environment:
+
+```sh
+python -m pip install ziglang==0.16.0 pefile==2024.8.26 capstone==5.0.9
+python native/build_probe.py --zig /path/to/zig
+```
+
+`native/build_patterns.py --help` documents rebuilding the reviewed fingerprints
+from your own corresponding emulator executables. A changed implementation needs
+new source review, hook execution and restore testing before adding a pattern.
+Normal app users do not need a compiler or these development dependencies.
+
+Reproduce the real-startup regression with an installed compatible Windows CLI:
+
+```powershell
+python native/check_emulator_startup.py --emulator-folder "D:\Emulators\PokeDinner"
+```
+
+This stages temporary runtime copies, generates small synthetic metadata/container
+fixtures, disables rendering and preserves only diagnostic logs. It neither
+copies game images nor modifies the installed emulator or its real profile.
+
+Source references:
+[Eglantine core startup](https://github.com/Djihads80/Eglantine/blob/e96917cd0e68851ec389dd519f03b52adc11d493/src/core/core.cpp),
+[VFS interface](https://github.com/Djihads80/Eglantine/blob/e96917cd0e68851ec389dd519f03b52adc11d493/src/core/file_sys/vfs/vfs.h),
+[NPDM parsing](https://github.com/Djihads80/Eglantine/blob/e96917cd0e68851ec389dd519f03b52adc11d493/src/core/file_sys/program_metadata.cpp).
+Eglantine/PokeDinner and their contributors retain their own source licenses;
+this independent patch is not endorsed by those projects or Nintendo.

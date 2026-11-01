@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
+import sys
 project = Path(SPECPATH)
 a = Analysis([str(project/'src'/'app.py')], pathex=[str(project/'src')],
              binaries=[], datas=[], hiddenimports=[], hookspath=[], hooksconfig={},
@@ -14,4 +15,4 @@ pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='Switch2-XCI-Packager',
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
           console=False, disable_windowed_traceback=False,
-          icon=str(project/'app.ico') if (project/'app.ico').exists() else None)
+          icon=str(project/'app.ico') if sys.platform=='win32' and (project/'app.ico').exists() else None)

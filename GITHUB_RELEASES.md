@@ -9,7 +9,7 @@ Downloads are available on the repository's [Releases page](https://github.com/s
 3. The workflow runs the synthetic tests, builds the portable EXE, and checks PNG/WEBP/ICO/AVIF artwork with both XCI and NSP in single-file and package-folder modes. It then assembles the application, source, notices and checksums.
 4. A successful job publishes a release tagged at its source commit. Existing releases are not overwritten; use a new version for updated downloads.
 
-Release notes include lawful-use and ownership notices and the current memory-setting guidance and optional companion workaround. Keep these notices and the required dependency licenses with redistributed copies.
+Release notes include lawful-use and ownership notices and the current emulator-patch instructions, memory-setting guidance and companion workaround for unpatched builds. Keep these notices and the required dependency licenses with redistributed copies.
 
 ## Release contents
 

@@ -1,5 +1,16 @@
 # Release notes
 
+## 2.0.0 — 2026-11-01
+
+- **New Emulator patch panel:** select a Windows x64 emulator folder, check compatibility, add the patch and remove it later. Eglantine build 96 standard/PGO and PokeDinner 2.0.0 GUI/CLI profiles are recognized; matching future builds and forks can be tried experimentally without a new menu entry.
+- **No separate `main.npdm` needed after patching:** compatible emulators read Switch 2 metadata already embedded inside this packager's plaintext XCI/NSP. Restart the emulator after applying the patch. Existing packages do not need rebuilding, and the packager need not remain open while playing.
+- To create only a single XCI/NSP, uncheck **Create package folder**. The option remains on by default for unpatched emulators; without the patch, retain each game's exact external companion in its own folder. Selecting 12 GiB alone can still use incorrect timing and reduce performance.
+- Save exact executable backups, apply changes atomically and restore original bytes on removal. Unknown, ambiguous or signed executables are not modified. Keep `.s2gp-patch` while patched and re-check after emulator updates; compatibility with every fork/future build is not guaranteed.
+- Include the corrected PokeDinner file-reader probe. Startup checks match the external-file path's 31.25 MHz timer; selecting 12 GiB alone and the earlier local patch used 19.2 MHz. Older local patches can be removed before applying this version. These are startup checks, not an FPS guarantee.
+- Fix the clipped letters/path field below **Browse folder**, compact drop-area spacing and the square background around its rounded icon/button.
+- Update the startup caution, compatibility notes, source and build instructions. Windows x64 portable app, source and SHA-256 checksums are included. **No Linux build is included.**
+- This remains experimental software. No games, artwork, firmware, retail keys or emulator binaries are included. Piracy is not supported; Nintendo and other rights holders retain ownership of their content and marks.
+
 ## 1.4.4 — 2026-10-31
 
 - Add the reported performance drop without an external `main.npdm` to the startup caution, Notes & compatibility, README and release notes.

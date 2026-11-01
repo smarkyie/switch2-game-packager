@@ -17,6 +17,8 @@ PyInstaller's bootloader exception permits distribution of bundled applications 
 
 No Nintendo game files, artwork, firmware, tickets, certificates, cryptographic keys or SDK implementation are included. Placeholder values under `compatibility/` are generated locally from public fixed labels and cannot decrypt retail content. No Eglantine binaries are bundled. Product names identify compatibility targets and do not imply affiliation or endorsement.
 
+The optional emulator patch includes an original MIT-licensed native probe (`native/container_probe.c`), compiled with Zig 0.16.0. It has no linked runtime, imports or bundled compiler. Eglantine and PokeDinner source retain their upstream licenses; only compatibility fingerprints and generic ABI anchors are included, not their executable functions. See `EMULATOR_PATCH.md` for source references and rebuild instructions. Zig, pefile and Capstone are developer tools, not runtime dependencies shipped in the app.
+
 Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo. Game content and other protected materials belong to their respective rights holders. This independent project is not affiliated with or endorsed by Nintendo and does not support piracy. See [DISCLAIMER.md](DISCLAIMER.md) for ownership and lawful-use notices.
 
 Upstream projects:

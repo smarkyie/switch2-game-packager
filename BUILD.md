@@ -2,6 +2,10 @@
 
 Target: Windows 10/11 x64, CPython **3.11.9 x64**. No Nintendo data or keys are needed to build or run the synthetic tests.
 
+This release targets Windows x64 only; no Linux download is included.
+
+Include `test_emulator_patch` in the unittest command. Native probe rebuilding is documented in [EMULATOR_PATCH.md](EMULATOR_PATCH.md); ordinary PyInstaller builds use the included payload and need no C compiler.
+
 From this source directory in PowerShell:
 
 ```powershell
@@ -13,6 +17,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe test_performance_safety.py
 .\.venv\Scripts\python.exe test_nsp.py
 .\.venv\Scripts\python.exe test_compatibility.py
+.\.venv\Scripts\python.exe test_emulator_patch.py
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean Packager.spec
 ```
 
