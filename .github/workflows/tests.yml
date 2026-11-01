@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Synthetic tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is the shipped target; Linux catches POSIX-only behavior
+        # (for example rename() replacing existing files) when run from source.
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Install test dependencies
+        run: python -m pip install Pillow==12.2.0
+      - name: Run synthetic tests (Windows)
+        if: runner.os == 'Windows'
+        run: python -m unittest test_engine test_ui test_artwork test_performance_safety test_nsp test_compatibility test_emulator_patch
+      - name: Run synthetic tests (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb
+          xvfb-run -a python -m unittest test_engine test_ui test_artwork test_performance_safety test_nsp test_compatibility test_emulator_patch

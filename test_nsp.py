@@ -114,6 +114,21 @@ class NspTests(unittest.TestCase):
         self.assertEqual(companion.read_bytes(),b'external metadata');self.assertFalse(self.output.exists())
         self.assertFalse(list(self.root.glob('*.partial')))
 
+    def test_output_created_during_build_is_not_overwritten(self):
+        def notify(stage,value):
+            if stage=='Verifying container integrity':self.output.write_bytes(b'someone else')
+        with self.assertRaises(FileExistsError):self.build(notify=notify)
+        self.assertEqual(self.output.read_bytes(),b'someone else')
+        self.assertFalse(list(self.root.glob('*.partial')))
+
+    def test_rename_no_replace_moves_and_refuses_existing_targets(self):
+        src=self.root/'a.partial';dst=self.root/'a.bin';src.write_bytes(b'new')
+        engine.rename_no_replace(src,dst)
+        self.assertEqual(dst.read_bytes(),b'new');self.assertFalse(src.exists())
+        src.write_bytes(b'newer')
+        with self.assertRaises(FileExistsError):engine.rename_no_replace(src,dst)
+        self.assertEqual(dst.read_bytes(),b'new');self.assertEqual(src.read_bytes(),b'newer')
+
     def test_default_outputs_only_game_file_with_either_verification_setting(self):
         for kind in ('xci','nsp'):
             for verified in (True,False):

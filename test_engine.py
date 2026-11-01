@@ -1,6 +1,7 @@
 """Format round trips and failure behavior; no game files required."""
 from pathlib import Path
 import sys,tempfile,struct,threading,unittest,json,mmap
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).parent/'src'))
 import engine,verify_format as verify
 from PIL import Image
@@ -20,6 +21,15 @@ class PackagingTests(unittest.TestCase):
         self.art=self.root/'art.png';Image.new('RGBA',(500,300),(20,90,180,120)).save(self.art)
 
     def tearDown(self):self.tmp.cleanup()
+
+    def test_unreadable_subfolder_does_not_abort_scan(self):
+        locked=self.game/'System Volume Information';locked.mkdir()
+        real=Path.iterdir
+        def iterdir(path):
+            if path==locked.resolve():raise PermissionError(13,'Access is denied',str(path))
+            return real(path)
+        with patch.object(Path,'iterdir',iterdir):snapshots,_=engine.find_snapshots(self.game)
+        self.assertEqual([s.version for s in snapshots],[131072,65536])
 
     def test_round_trip_dynamic_title_and_version(self):
         snapshots,_=engine.find_snapshots(self.game);self.assertEqual([s.version for s in snapshots],[131072,65536])
