@@ -3,7 +3,7 @@ import io, tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw
 from artwork import ArtworkSelection, CropModel, encode_artwork, load_artwork
-from ui import BG,PANEL,FIELD,TEXT,MUTED,ACCENT,Button,Motion
+from ui import BG,PANEL,FIELD,TEXT,MUTED,ACCENT,Button,Motion,ui_font
 
 class ZoomSlider(tk.Canvas):
     def __init__(self,parent,variable,command):
@@ -36,25 +36,27 @@ class CropDialog(tk.Toplevel):
         self.fit=tk.BooleanVar(value=selection.fit);self.result=None;self.motion=Motion(self)
         self.zoom=tk.DoubleVar(value=self.model.zoom);self._drag=None;self._render_job=None
         header=tk.Frame(self,bg=BG);header.pack(fill='x',padx=23,pady=(20,13))
-        tk.Label(header,text='Crop your icon',bg=BG,fg=TEXT,font=('Segoe UI Semibold',19)).pack(anchor='w')
-        tk.Label(header,text='Drag to position · scroll to zoom · exported at 256 × 256',bg=BG,fg=MUTED,font=('Segoe UI',10)).pack(anchor='w',pady=(5,0))
+        tk.Label(header,text='Crop your icon',bg=BG,fg=TEXT,font=ui_font(19,True)).pack(anchor='w')
+        tk.Label(header,text='Drag to position · scroll to zoom · exported at 256 × 256',bg=BG,fg=MUTED,font=ui_font(10)).pack(anchor='w',pady=(5,0))
         footer=tk.Frame(self,bg=BG);footer.pack(side='bottom',fill='x',padx=23,pady=(12,20))
         Button(footer,'Apply crop',self.apply,self.motion,width=140,primary=True).pack(side='right')
         Button(footer,'Cancel',self.close,self.motion,width=100).pack(side='right',padx=10)
         Button(footer,'Reset',self.reset,self.motion,width=95,quiet=True).pack(side='left')
         controls=tk.Frame(self,bg=BG);controls.pack(side='bottom',fill='x',padx=23,pady=8)
-        tk.Label(controls,text='Zoom',bg=BG,fg=MUTED,font=('Segoe UI',10)).pack(side='left')
+        tk.Label(controls,text='Zoom',bg=BG,fg=MUTED,font=ui_font(10)).pack(side='left')
         ZoomSlider(controls,self.zoom,self.change_zoom).pack(side='left',fill='x',expand=True,padx=15)
         self.fit_control=ttk.Checkbutton(controls,text='Fit whole image',variable=self.fit,command=self.schedule_render);self.fit_control.pack(side='right')
         body=tk.Frame(self,bg=BG);body.pack(fill='both',expand=True,padx=23)
         aside=tk.Frame(body,bg=BG,width=190);aside.pack(side='right',fill='y',padx=(18,0));aside.pack_propagate(False)
-        tk.Label(aside,text='ICON PREVIEW',bg=BG,fg=MUTED,font=('Segoe UI Semibold',9)).pack(anchor='w',pady=(10,13))
+        tk.Label(aside,text='ICON PREVIEW',bg=BG,fg=MUTED,font=ui_font(9,True)).pack(anchor='w',pady=(10,13))
         self.thumbnail=tk.Label(aside,bg=FIELD,width=180,height=180);self.thumbnail.pack()
-        tk.Label(aside,text='256 × 256 pixels\nJPEG icon inside the XCI',bg=BG,fg=MUTED,font=('Segoe UI',10),justify='left').pack(anchor='w',pady=15)
+        tk.Label(aside,text='256 × 256 pixels\nJPEG icon inside the XCI',bg=BG,fg=MUTED,font=ui_font(10),justify='left').pack(anchor='w',pady=15)
         self.canvas=tk.Canvas(body,bg=FIELD,bd=0,highlightthickness=0,cursor='fleur');self.canvas.pack(side='left',fill='both',expand=True)
         self.canvas.bind('<Configure>',lambda e:self.schedule_render());self.canvas.bind('<ButtonPress-1>',self.begin_drag)
         self.canvas.bind('<B1-Motion>',self.drag);self.canvas.bind('<ButtonRelease-1>',lambda e:setattr(self,'_drag',None))
         self.canvas.bind('<MouseWheel>',self.wheel)
+        self.canvas.bind('<Button-4>',lambda event:self.linux_wheel(1))
+        self.canvas.bind('<Button-5>',lambda event:self.linux_wheel(-1))
         self.bind('<Escape>',lambda e:self.close());self.bind('<Return>',lambda e:self.apply())
         self.protocol('WM_DELETE_WINDOW',self.close);self.after(20,self.ready)
     def ready(self):self.deiconify();self.grab_set();self.focus_set();self.schedule_render()
@@ -91,8 +93,11 @@ class CropDialog(tk.Toplevel):
     def change_zoom(self,value):
         self.fit.set(False);self.model.set_zoom(value);self.schedule_render()
     def wheel(self,event):
-        self.fit.set(False);self.model.set_zoom(self.model.zoom*(1.12 if event.delta>0 else 1/1.12))
+        return self.linux_wheel(1 if event.delta>0 else -1)
+    def linux_wheel(self,direction):
+        self.fit.set(False);self.model.set_zoom(self.model.zoom*(1.12 if direction>0 else 1/1.12))
         self.zoom.set(self.model.zoom);self.schedule_render()
+        return 'break'
     def reset(self):
         self.model=CropModel(*self.image.size);self.zoom.set(1);self.fit.set(False);self.schedule_render()
     def apply(self):self.result=self.current_selection();self.close()

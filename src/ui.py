@@ -3,12 +3,17 @@ from pathlib import Path
 import ctypes, sys, time
 import tkinter as tk
 from tkinter import ttk
+from tkinter import font as tkfont
 from PIL import Image, ImageTk, ImageDraw
 from functools import lru_cache
 from artwork import IMAGE_EXTENSIONS
 
 BG='#0e1726';PANEL='#172338';FIELD='#1c2b42';TEXT='#edf4ff';MUTED='#93a8c8'
 ACCENT='#289bff';BORDER='#2a3b56';ICON='#a9c8f3'
+
+def ui_font(size,bold=False):
+    if sys.platform=='win32':return ('Segoe UI Semibold' if bold else 'Segoe UI',size)
+    return ('DejaVu Sans',size,'bold' if bold else 'normal')
 
 def rgb(color):return tuple(int(color[i:i+2],16) for i in (1,3,5))
 def blend(a,b,t):return '#'+''.join(f'{round(x+(y-x)*max(0,min(1,t))):02x}' for x,y in zip(rgb(a),rgb(b)))
@@ -144,7 +149,7 @@ class Button(tk.Canvas):
             border=blend('#3b5478','#6c9bd4',self.hot) if not self.quiet else fill
             surface(self,w,h,fill,'#9bcfff' if self.focused else border,14)
         color=TEXT if self.enabled else '#647c9c'
-        font=('Segoe UI Semibold',10)
+        font=ui_font(10,True)
         import tkinter.font as fontmod
         tw=fontmod.Font(font=font).measure(self.text);total=tw+(29 if self.kind else 0);start=(w-total)/2
         dy=1 if self.pressed else 0
@@ -165,13 +170,13 @@ class Panel(tk.Canvas):
 class Entry(tk.Canvas):
     """Rounded field with a genuine native text editor and clean focus states."""
     def __init__(self,parent,placeholder='',**kw):
-        width=kw.pop('width',15);font=kw.pop('font',('Segoe UI',10))
+        width=kw.pop('width',15);font=kw.pop('font',ui_font(10))
         super().__init__(parent,bg=parent.cget('bg'),width=width*8,height=41,bd=0,highlightthickness=0)
         self.entry=tk.Entry(self,bd=0,highlightthickness=0,bg=FIELD,fg=TEXT,insertbackground=TEXT,
             readonlybackground=FIELD,disabledbackground=FIELD,disabledforeground='#7188a8',
             selectbackground='#245b8f',selectforeground=TEXT,font=font,**kw)
         self.item=self.create_window(13,20,anchor='w',window=self.entry)
-        self.hint=tk.Label(self,text=placeholder,bg=FIELD,fg='#829ab9',font=('Segoe UI',9),bd=0,cursor='xterm')
+        self.hint=tk.Label(self,text=placeholder,bg=FIELD,fg='#829ab9',font=ui_font(9),bd=0,cursor='xterm')
         self.hint.bind('<Button-1>',lambda e:self.entry.focus_set())
         super().bind('<Configure>',lambda e:self.draw())
         self.entry.bind('<FocusIn>',lambda e:self.draw());self.entry.bind('<FocusOut>',lambda e:self.draw())
@@ -229,13 +234,33 @@ class DropZone(tk.Canvas):
         self.delete('all');w=self.winfo_width();h=self.winfo_height()
         if w<4:return
         surface(self,w,h,blend('#192b43','#1d3859',self.hot),blend('#425979','#6faeff',self.hot),20)
-        space=max(65,h-56);icon_size=min(48,space*.44)
-        icon(self,'download',w/2-icon_size/2,space*.06,icon_size,blend('#7297c9','#a6ceff',self.hot),2.1)
+        # Reserve the real button footprint, then fit the text above it. Fixed
+        # percentages used to overlap the button at compact window sizes.
+        button=getattr(self.app,'browse',None)
+        fill=blend('#192b43','#1d3859',self.hot)
+        if button is not None and button.cget('bg')!=fill:
+            button.configure(bg=fill)  # Rounded corners must match this surface.
+        button_top=h-12-(button.winfo_reqheight() if button is not None else 37)
+        compact=h<112
+        title_font=ui_font(12 if compact else 13,True);subtitle_font=ui_font(9 if compact else 10)
+        title_height=tkfont.Font(self,font=title_font).metrics('linespace')
+        subtitle_height=tkfont.Font(self,font=subtitle_font).metrics('linespace')
+        text_height=title_height+3+subtitle_height
+        padding=4 if compact else 8
+        available=max(0,button_top-2*padding)
+        show_icon=available>=text_height+52
+        block_height=text_height+(52 if show_icon else 0)
+        top=padding+max(0,(available-block_height)/2)
+        if show_icon:
+            icon(self,'download',w/2-20,top,40,blend('#7297c9','#a6ceff',self.hot),2.1)
+            top+=52
         selected=Path(self.app.folder.get()).name if self.app.folder.get() else None
-        title=selected or 'Drop your game folder here'
+        title=selected or ('Drop your game folder here' if sys.platform=='win32' else 'Select your game folder')
         if len(title)>56:title=title[:53]+'…'
-        self.create_text(w/2,space*.70,text=title,fill='#bdd6fa',font=('Segoe UI Semibold',13))
-        self.create_text(w/2,space*.91,text='Choose another folder or drop it here' if selected else 'or choose a folder manually',fill=MUTED,font=('Segoe UI',10))
+        self.create_text(w/2,top+title_height/2,text=title,fill='#bdd6fa',font=title_font,tags='folder-title')
+        self.create_text(w/2,top+title_height+3+subtitle_height/2,
+                         text='Choose another folder' if selected else 'or choose a folder manually',
+                         fill=MUTED,font=subtitle_font,tags='folder-subtitle')
 
 class Cover(tk.Canvas):
     def __init__(self,parent,app):
@@ -263,8 +288,8 @@ class Cover(tk.Canvas):
             self._art_y=h/2;self.create_image(w/2,h/2,image=self.photo,tags='artwork')
         else:
             icon(self,'image',w/2-43,h*.38-43,86,'#6488b9',3)
-            self.create_text(w/2,h*.69,text='Add cover artwork',fill='#b0c9ee',font=('Segoe UI Semibold',11))
-            self.create_text(w/2,h*.69+28,text='WEBP, PNG, JPG + more',fill=MUTED,font=('Segoe UI',9))
+            self.create_text(w/2,h*.69,text='Add cover artwork',fill='#b0c9ee',font=ui_font(11,True))
+            self.create_text(w/2,h*.69+28,text='WEBP, PNG, JPG + more',fill=MUTED,font=ui_font(9))
 
 class Progress(tk.Canvas):
     def __init__(self,parent,motion):
@@ -297,7 +322,7 @@ class Check(tk.Canvas):
         self.delete('all');checked=self.variable.get()
         surface(self,22,22,'#168ff8' if checked else FIELD,'#8bcaff' if self.focus_get() is self else ('#3ba8ff' if checked else '#546d90'),6)
         if checked:icon(self,'check',3,3,16,TEXT,1.8)
-        self.create_text(31,11,text=self.text,anchor='w',fill=TEXT if self.enabled else MUTED,font=('Segoe UI',10))
+        self.create_text(31,11,text=self.text,anchor='w',fill=TEXT if self.enabled else MUTED,font=ui_font(10))
 
 class Status(tk.Canvas):
     def __init__(self,parent,app):
@@ -363,7 +388,7 @@ class Layout:
             enabled=ctypes.c_int(1)
             if ctypes.windll.user32.SystemParametersInfoW(0x1042,0,ctypes.byref(enabled),0):self.motion.enabled=bool(enabled.value)
         s=ttk.Style(self);s.theme_use('clam')
-        s.configure('.',font=('Segoe UI',10),background=PANEL,foreground=TEXT)
+        s.configure('.',font=ui_font(10),background=PANEL,foreground=TEXT)
         s.configure('TEntry',fieldbackground=FIELD,foreground=TEXT,bordercolor='#344962',lightcolor='#344962',darkcolor='#344962',
                     padding=(11,10),insertcolor=TEXT,selectbackground='#225d96')
         s.map('TEntry',fieldbackground=[('disabled','#17243a'),('readonly',FIELD)],foreground=[('disabled','#7188a8'),('readonly','#bdd1ef')],bordercolor=[('focus','#5faeff')])
@@ -376,13 +401,13 @@ class Layout:
               selectbackground=[('readonly',FIELD)],bordercolor=[('focus',FIELD)])
         s.configure('TCheckbutton',background=PANEL,foreground=TEXT,indicatorbackground=FIELD,indicatorforeground=TEXT,padding=0)
         s.map('TCheckbutton',background=[('active',PANEL)])
-        s.configure('TLabel',background=BG,foreground=TEXT);s.configure('Section.TLabel',font=('Segoe UI Semibold',12))
+        s.configure('TLabel',background=BG,foreground=TEXT);s.configure('Section.TLabel',font=ui_font(12,True))
         s.configure('TButton',padding=(12,9),background=FIELD,foreground=TEXT,bordercolor=BORDER)
         s.map('TButton',background=[('active','#294566')]);s.configure('TFrame',background=BG)
 
     def label(self,parent,text=None,var=None,color=TEXT,size=10,bold=False,**kw):
         return tk.Label(parent,text=text,textvariable=var,bg=parent.cget('bg'),fg=color,
-                        font=('Segoe UI Semibold' if bold else 'Segoe UI',size),bd=0,**kw)
+                        font=ui_font(size,bold),bd=0,**kw)
 
     def heading(self,parent,title,kind):
         row=tk.Frame(parent,bg=PANEL);row.pack(fill='x',pady=(0,10))
@@ -399,6 +424,7 @@ class Layout:
         self.label(title,'XCI / NSP Builder',size=26,bold=True).pack(anchor='w')
         self.label(title,'Nintendo Switch 2',size=12,color='#aec6e9').pack(anchor='w',pady=(0,2))
         self.help_btn=Button(header,'Notes & compatibility',self.notes,self.motion,width=192,quiet=True,kind='info');self.help_btn.pack(side='right')
+        self.emulator_patch_btn=Button(header,'Emulator patch',self.emulator_patch,self.motion,width=156,quiet=True,kind='plus');self.emulator_patch_btn.pack(side='right',padx=(0,10))
         footer=tk.Frame(self,bg=BG);footer.pack(side='bottom',fill='x')
         self.progressbar=Progress(footer,self.motion);self.progressbar.pack(fill='x')
         action=tk.Frame(footer,bg=BG);action.pack(fill='x',padx=24,pady=(16,18))
@@ -415,12 +441,15 @@ class Layout:
         self.panels=[]
         game=Panel(area);game.grid(row=0,column=0,sticky='nsew',padx=(0,12),pady=(0,10));self.panels.append(game)
         self.heading(game.inner,'Game files','folder')
-        self.drop_zone=DropZone(game.inner,self);self.drop_zone.pack(fill='both',expand=True)
+        self.drop_zone=DropZone(game.inner,self)
         self.browse=Button(self.drop_zone,'Browse folder',self.pick_folder,self.motion,width=172,height=37,kind='folder')
         self.browse.place(relx=.5,rely=1,anchor='s',y=-12)
-        pathrow=tk.Frame(game.inner,bg=PANEL);pathrow.pack(fill='x',pady=(9,0))
-        self.folder_entry=Entry(pathrow,textvariable=self.folder,font=('Segoe UI',9),placeholder='Or paste a folder path and press Enter');self.folder_entry.configure(height=35);self.folder_entry.pack(fill='x')
+        # Pack the fixed-height editor first so the expanding drop target cannot
+        # consume its allocation and leave just a sliver of placeholder text.
+        pathrow=tk.Frame(game.inner,bg=PANEL);pathrow.pack(side='bottom',fill='x',pady=(9,0))
+        self.folder_entry=Entry(pathrow,textvariable=self.folder,font=ui_font(9),placeholder='Or paste a folder path and press Enter');self.folder_entry.configure(height=35);self.folder_entry.pack(fill='x')
         self.folder_entry.bind('<Return>',lambda e:self.scan())
+        self.drop_zone.pack(fill='both',expand=True)
         details=Panel(area);details.grid(row=1,column=0,sticky='nsew',padx=(0,12),pady=(0,10));self.panels.append(details)
         self.heading(details.inner,'Game details','game')
         fields=tk.Frame(details.inner,bg=PANEL);fields.pack(fill='x')
@@ -436,7 +465,7 @@ class Layout:
             else:self.version_entry=entry
         snapshot=tk.Frame(details.inner,bg=PANEL);snapshot.pack(fill='x',pady=(10,0))
         self.label(snapshot,'Snapshot',color=MUTED,size=9).pack(side='left',padx=(0,12))
-        self.combo=Combo(snapshot,textvariable=self.snapshot_label,state='readonly',font=('Segoe UI',9));self.combo.pack(side='left',fill='x',expand=True)
+        self.combo=Combo(snapshot,textvariable=self.snapshot_label,state='readonly',font=ui_font(9));self.combo.pack(side='left',fill='x',expand=True)
         self.combo.bind('<<ComboboxSelected>>',lambda e:self.select_snapshot())
         out=Panel(area);out.grid(row=2,column=0,sticky='nsew',padx=(0,12));self.panels.append(out)
         self.heading(out.inner,'Output','file')

@@ -1,24 +1,27 @@
 """Startup compatibility caution; preferences stay local to this application."""
 from pathlib import Path
-import json, os, tempfile
+import json, os, sys, tempfile
 import tkinter as tk
-from ui import BG, PANEL, TEXT, MUTED, Button, Check, Motion, Panel
+from ui import BG, PANEL, TEXT, MUTED, Button, Check, Motion, Panel, ui_font
 
-NOTICE_ID = 'experimental-12gib-performance-v2'
+NOTICE_ID = 'experimental-emulator-patch-v3'
 CAUTION = (
     'Set your emulator to 12 GiB RAM before testing Switch 2 packages. '
     'Some PokeDinner/Eglantine builds can exit on boot with the default 4 GiB setting.\n\n'
-    'A PokeDinner 2.0.0 boot without an external main.npdm was reported with 12 GiB selected. '
-    'Other games and emulator builds may behave differently. '
-    'This app does not change emulator memory settings.\n\n'
-    'Performance caution: considerably lower performance was reported without the external '
-    'main.npdm, even with 12 GiB selected. Keep Create package folder enabled and retain '
-    'its companion beside the package for the recommended setup. This is a reported '
-    'observation, not a benchmark or a guarantee for every game.\n\n'
+    'New: Emulator patch lets compatible Windows x64 Eglantine/PokeDinner builds read '
+    'the metadata inside your XCI/NSP. After adding the patch and restarting the emulator, '
+    'a separate main.npdm beside the game is not needed. Uncheck Create package folder '
+    'to produce only the XCI/NSP.\n\n'
+    'Without the patch, keep each game with its own external main.npdm. Selecting '
+    '12 GiB alone may boot with incorrect timing and lower performance. The patch is '
+    'experimental and reversible; future builds may not match. This app does not '
+    'change emulator memory settings.\n\n'
     'Verification checks package integrity, not successful booting, gameplay or performance.'
 )
 
 def default_preferences_path():
+    if sys.platform.startswith('linux'):
+        return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/'Switch2GamePackager'/'preferences.json'
     return Path(os.environ.get('LOCALAPPDATA') or Path.home())/'Switch2GamePackager'/'preferences.json'
 
 def read_preferences(path):
@@ -46,15 +49,15 @@ class StartupNotice(tk.Toplevel):
         self.preferences_path=Path(preferences_path);self.motion=Motion(self)
         self.dont_show=tk.BooleanVar(self,value=False)
         header=tk.Frame(self,bg=BG);header.pack(fill='x',padx=26,pady=(24,16))
-        tk.Label(header,text='CAUTION',bg=BG,fg='#ffc36a',font=('Segoe UI Semibold',10)).pack(anchor='w')
-        tk.Label(header,text='Experimental software',bg=BG,fg=TEXT,font=('Segoe UI Semibold',21)).pack(anchor='w',pady=(5,0))
+        tk.Label(header,text='CAUTION',bg=BG,fg='#ffc36a',font=ui_font(10,True)).pack(anchor='w')
+        tk.Label(header,text='Experimental software',bg=BG,fg=TEXT,font=ui_font(21,True)).pack(anchor='w',pady=(5,0))
         card=Panel(self,width=526,height=275);card.pack(fill='x',padx=22)
-        tk.Label(card.inner,text='Emulator memory: 12 GiB',bg=PANEL,fg=TEXT,font=('Segoe UI Semibold',12)).pack(anchor='w',pady=(0,9))
-        tk.Label(card.inner,text=CAUTION,bg=PANEL,fg=MUTED,font=('Segoe UI',10),wraplength=490,justify='left').pack(anchor='w')
+        tk.Label(card.inner,text='Emulator memory: 12 GiB',bg=PANEL,fg=TEXT,font=ui_font(12,True)).pack(anchor='w',pady=(0,9))
+        tk.Label(card.inner,text=CAUTION,bg=PANEL,fg=MUTED,font=ui_font(10),wraplength=490,justify='left').pack(anchor='w')
         tk.Label(self,text='Use only content you are authorized to use. Piracy is not supported.\n'
                  'Nintendo and game content remain the property of their respective rights holders.\n'
                  'This independent project is not affiliated with or endorsed by Nintendo.',
-                 bg=BG,fg=MUTED,font=('Segoe UI',9),wraplength=520,justify='left').pack(anchor='w',padx=26,pady=(14,10))
+                 bg=BG,fg=MUTED,font=ui_font(9),wraplength=520,justify='left').pack(anchor='w',padx=26,pady=(14,10))
         footer=tk.Frame(self,bg=BG);footer.pack(fill='x',padx=24,pady=(8,22))
         self.dismiss_check=Check(footer,"Don't show this again",self.dont_show);self.dismiss_check.pack(side='left')
         self.continue_button=Button(footer,'Got it',self.close,self.motion,width=115,primary=True);self.continue_button.pack(side='right')
