@@ -22,6 +22,8 @@ CAUTION = (
 def default_preferences_path():
     if sys.platform.startswith('linux'):
         return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/'NSPBox'/'preferences.json'
+    if sys.platform=='darwin':
+        return Path.home()/'Library'/'Application Support'/'NSPBox'/'preferences.json'
     return Path(os.environ.get('LOCALAPPDATA') or Path.home())/'NSPBox'/'preferences.json'
 
 def read_preferences(path):

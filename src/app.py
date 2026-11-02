@@ -244,7 +244,8 @@ class App(Layout,tk.Tk):
 
     def setup_compatibility(self,parent):
         folder=filedialog.askdirectory(parent=parent,title='Choose the emulator keys folder',
-            initialdir=str(Path(os.environ.get('APPDATA',Path.home()))/'eden'/'keys'))
+            initialdir=str(((Path.home()/'Library'/'Application Support') if sys.platform=='darwin'
+                else Path(os.environ.get('APPDATA',Path.home())))/'eden'/'keys'))
         if not folder:return
         try:
             result=compatibility.install(folder)

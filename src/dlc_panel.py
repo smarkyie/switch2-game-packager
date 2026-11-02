@@ -211,7 +211,7 @@ class DlcPanel(AmbientFrame):
         if self.last_output:
             try:
                 if sys.platform=='win32': os.startfile(str(self.last_output.parent))
-                else: subprocess.Popen(['xdg-open',str(self.last_output.parent)])
+                else: subprocess.Popen(['open' if sys.platform=='darwin' else 'xdg-open',str(self.last_output.parent)])
             except OSError as e: self.status.set(str(e))
 
     def close(self):

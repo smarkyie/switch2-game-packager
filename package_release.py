@@ -10,7 +10,7 @@ import engine
 
 DOCS=('README.md','BUILD.md','TECHNICAL_NOTES.md','PERFORMANCE_NOTES.md','CHANGELOG.md',
       'LICENSE.txt','THIRD_PARTY_NOTICES.md','RELEASE_VALIDATION.md','GITHUB_RELEASES.md','DISCLAIMER.md','EMULATOR_PATCH.md','DLC.md')
-SOURCE=('Packager.spec','app.ico','requirements-build.txt','package_release.py','frozen_smoke.py',
+SOURCE=('Packager.spec','Packager-macOS.spec','app.ico','requirements-build.txt','package_release.py','frozen_smoke.py',
         'test_engine.py','test_ui.py','test_artwork.py','test_performance_safety.py','test_nsp.py','test_compatibility.py',
         'test_emulator_patch.py','test_dlc.py','test_file_drops.py','native/container_probe.c','native/build_probe.py','native/build_patterns.py','native/check_emulator_startup.py','.gitignore')
 
@@ -38,8 +38,9 @@ def notes():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir',type=Path,default=ROOT/'release')
-    linux=sys.platform.startswith('linux')
-    binary='NSP-Box'+('' if linux else '.exe')
+    macos=sys.platform=='darwin'
+    linux=sys.platform.startswith('linux') and not macos
+    binary='NSP-Box'+('.exe' if sys.platform=='win32' else '')
     parser.add_argument('--executable',type=Path,default=ROOT/'dist'/binary)
     args=parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+',engine.VERSION):raise ValueError('Invalid release version')
@@ -47,7 +48,8 @@ def main():
     if os.environ.get('GITHUB_REF_TYPE')=='tag' and os.environ.get('GITHUB_REF_NAME')!=tag:
         raise ValueError('Git tag must match engine.VERSION: '+tag)
     files=source_files();out=args.output_dir.resolve();out.mkdir(parents=True,exist_ok=True)
-    target=('Linux-'+{'x86_64':'x64','aarch64':'arm64'}.get(platform.machine(),platform.machine())) if linux else 'Windows-x64'
+    arch={'x86_64':'x64','aarch64':'arm64','arm64':'arm64'}.get(platform.machine(),platform.machine())
+    target=('Linux-'+arch) if linux else ('macOS-'+arch) if macos else 'Windows-x64'
     name='NSP-Box-'+tag+'-'+target;release=out/name
     release.mkdir()  # Refuse to overwrite an existing assembled release.
     shutil.copy2(args.executable,release/binary)

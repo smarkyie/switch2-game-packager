@@ -252,14 +252,20 @@ def build(snapshot,output,title,display_version,artwork_path=None,verify=True,no
                     with companion_temp.open('xb') as f:
                         f.write(companion_data);f.flush();os.fsync(f.fileno())
                     try:
-                        companion_temp.rename(companion);companion_created=True
+                        # Windows rename refuses existing destinations; POSIX rename
+                        # would replace, so an exclusive hard link commits there.
+                        if os.name=='nt':companion_temp.rename(companion)
+                        else:os.link(companion_temp,companion);companion_temp.unlink()
+                        companion_created=True
                     except FileExistsError:
                         if companion.read_bytes()!=companion_data:
                             raise ValueError('Output main.npdm changed during packaging. Choose a separate output folder.')
                 finally:
                     if companion_temp.exists():companion_temp.unlink()
             # Windows rename refuses existing destinations, including files created during the build.
-            temp_path.rename(output);committed=True
+            if os.name=='nt':temp_path.rename(output)
+            else:os.link(temp_path,output);temp_path.unlink()
+            committed=True
             report={'app':'NSP Box','version':VERSION,'title':title,'title_id':f'{snapshot.title_id:016X}',
                     'snapshot':str(root),'snapshot_version':snapshot.version,'display_version':display_version,
                     'size':result.size,'sha256':h.hexdigest(),'original_control_preserved':preserved,

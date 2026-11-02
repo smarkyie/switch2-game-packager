@@ -23,6 +23,7 @@ def has_icon_asset(kind):
 
 def ui_font(size,bold=False):
     if sys.platform=='win32':return ('Segoe UI Semibold' if bold else 'Segoe UI',size)
+    if sys.platform=='darwin':return ('Helvetica Neue',size,'bold' if bold else 'normal')
     return ('DejaVu Sans',size,'bold' if bold else 'normal')
 
 def rgb(color):return tuple(int(color[i:i+2],16) for i in (1,3,5))
@@ -462,6 +463,13 @@ class Layout:
         if sys.platform=='win32':
             enabled=ctypes.c_int(1)
             if ctypes.windll.user32.SystemParametersInfoW(0x1042,0,ctypes.byref(enabled),0):self.motion.enabled=bool(enabled.value)
+        elif sys.platform=='darwin':
+            try:
+                import subprocess
+                value=subprocess.run(['defaults','read','com.apple.universalaccess','reduceMotion'],
+                    capture_output=True,text=True,timeout=3).stdout.strip()
+                if value in ('0','1'):self.motion.enabled=(value=='0')
+            except Exception:pass
         s=ttk.Style(self);s.theme_use('clam')
         s.configure('.',font=ui_font(10),background=PANEL,foreground=TEXT)
         s.configure('TEntry',fieldbackground=FIELD,foreground=TEXT,bordercolor='#344962',lightcolor='#344962',darkcolor='#344962',

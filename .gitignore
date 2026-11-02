@@ -1,6 +1,9 @@
 # Generated content stays out of Git.
+.DS_Store
 /build/
 /dist/
+/app.icns
+/*.dmg
 /release/
 /test-work/
 /.venv/
