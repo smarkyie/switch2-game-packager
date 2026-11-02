@@ -1,10 +1,29 @@
 # Build from source
 
-Target: Windows 10/11 x64, CPython **3.11.9 x64**. No Nintendo data or keys are needed to build or run the synthetic tests.
-
-This release targets Windows x64 only; no Linux download is included.
+Targets: Windows 10/11 x64 (CPython **3.11.9 x64**) and Linux x86_64 (AppImage). No Nintendo data or keys are needed to build or run the synthetic tests.
 
 Include `test_emulator_patch` in the unittest command. Native probe rebuilding is documented in [EMULATOR_PATCH.md](EMULATOR_PATCH.md); ordinary PyInstaller builds use the included payload and need no C compiler.
+
+## Linux x86_64 AppImage
+
+Build on the oldest Linux distribution you want to support. AppImages still use the host's glibc; an image built on a newer distribution may not run on older releases. The included script creates `dist/NSP-Box-<version>-x86_64.AppImage`.
+
+Install Python 3, `python3-venv`, `python3-tk`, and the official `appimagetool`, then run:
+
+```bash
+python3 -m venv .venv-linux
+.venv-linux/bin/python -m pip install -r requirements-build.txt
+APPIMAGETOOL=/path/to/appimagetool PYTHON=.venv-linux/bin/python ./build_appimage.sh
+```
+
+The AppImage can be opened from the file manager after allowing it to run as a program, or launched from a terminal:
+
+```bash
+chmod +x dist/NSP-Box-*-x86_64.AppImage
+./dist/NSP-Box-*-x86_64.AppImage
+```
+
+## Windows x64
 
 From this source directory in PowerShell:
 
