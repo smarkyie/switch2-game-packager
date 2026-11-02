@@ -23,7 +23,29 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean Packager.spec
 ```
 
-The EXE is created under `dist/`. Source and tests are provided as a separate release ZIP; the portable ZIP does not duplicate them. Keep `DISCLAIMER.md`, the root license, notices, and `licenses/` directory with any redistributed release. Dependency version pinning makes the build inputs identifiable; timestamps, Python installation details and toolchain/runtime differences mean binaries are not claimed to be bit-for-bit reproducible.
+The EXE is created under `dist/`. Source and tests are provided as a separate release ZIP; the portable ZIP does not duplicate them.
+
+## macOS
+
+Target: macOS 13+ on Apple silicon or Intel, CPython 3.11+ with Tk (e.g. Homebrew `python-tk`). Use `Packager-macOS.spec`, which builds the one-file binary `dist/NSP-Box` (CLI and GUI) plus the Finder app bundle `dist/NSP-Box.app`. Generate `app.icns` from `src/assets/icons/app.png` first if it is not present:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-build.txt
+.venv/bin/python -c "from PIL import Image; Image.open('src/assets/icons/app.png').convert('RGBA').save('app.icns', sizes=[(16,16),(32,32),(64,64),(128,128),(256,256),(512,512),(1024,1024)])"
+.venv/bin/python test_engine.py
+.venv/bin/python test_ui.py
+.venv/bin/python test_artwork.py
+.venv/bin/python test_performance_safety.py
+.venv/bin/python test_nsp.py
+.venv/bin/python test_compatibility.py
+.venv/bin/python test_emulator_patch.py
+.venv/bin/python test_dlc.py
+.venv/bin/python test_file_drops.py
+.venv/bin/python -m PyInstaller --noconfirm --clean Packager-macOS.spec
+```
+
+Notes: package-folder output and no-overwrite guarantees use the same exclusive hard-link commit on POSIX that DLC output already used. Preferences are stored under `~/Library/Application Support/NSPBox/`. Native drag-and-drop is Windows-only; on macOS use **Browse folder**, path entry with Enter, or **Paste**/**Cmd+V** for artwork. The reduced-motion accessibility setting is read from `com.apple.universalaccess`. The Emulator patch panel targets Windows x64 emulator executables and operates on file bytes, so it can still patch a Windows emulator installation kept on a Mac. The bundle is ad-hoc signed by PyInstaller; distribute it as a DMG or ZIP, and note that Gatekeeper will require right-click → Open (or `xattr -dr com.apple.quarantine`) for unsigned downloads. `test_ui.py` and `test_file_drops.py` need a desktop session; the drop test is skipped off Windows. Keep `DISCLAIMER.md`, the root license, notices, and `licenses/` directory with any redistributed release. Dependency version pinning makes the build inputs identifiable; timestamps, Python installation details and toolchain/runtime differences mean binaries are not claimed to be bit-for-bit reproducible.
 
 Run the GUI from source:
 
