@@ -2,34 +2,42 @@
 
 [Download](https://github.com/smarkyie/NSP-Box/releases/latest) · [Build from source](BUILD.md) · [Changelog](CHANGELOG.md) · [Disclaimer](DISCLAIMER.md)
 
-A portable Windows app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext NSP for compatible emulators. Choose a folder, add your own artwork, and build an NSP.
+A portable Windows & Linux app that packages a complete, already-extracted ExeFS/RomFS snapshot into a plaintext NSP for compatible emulators. Choose a folder, add your own artwork, and build an NSP.
 
 **NSP Box 3.0** adds the new app/UI icons, a subtle animated blue/indigo background and smoother transitions. It retains the NSP-only Game/DLC workflows and the Windows drag-and-drop fix for [issue #2](https://github.com/smarkyie/NSP-Box/issues/2). Native drop events queue paths for Tk to handle safely during its normal event loop.
 
 Use **Game** for complete ExeFS/RomFS snapshots and **DLC** for separate RomFS-only add-ons. A user installed the Bananza DLC NSP and confirmed that the game recognized it in PokeDinner 2.0.0. This is one successful user test, not universal DLC compatibility. See [DLC instructions](DLC.md).
 
-The reversible **Emulator patch** panel now lists its supported Windows x64 targets: Eglantine nx2 98/96, AMD Experimental 77-2 (build-99), and PokeDinner 2.1.0a/2.0.0. Standard/PGO and GUI/CLI variants are identified explicitly. Compatible Windows x64 Eglantine/PokeDinner builds read the metadata inside an NSP, so a separate `main.npdm` beside the game is unnecessary after applying the patch and restarting. See [patch installation, removal and limits](EMULATOR_PATCH.md). Windows x64 downloads only; no Linux build is included.
+The reversible **Emulator patch** panel lists supported Windows x64 targets: Eglantine nx2 98/96, AMD Experimental 77-2 (build-99), and PokeDinner 2.1.0a/2.0.0. Standard/PGO and GUI/CLI variants are identified explicitly. Compatible Windows x64 Eglantine/PokeDinner builds read the metadata inside an NSP, so a separate `main.npdm` beside the game is unnecessary after applying the patch and restarting. The patch applies to Windows x64 emulator files; the packager itself also builds for Linux x86_64. See [patch installation, removal and limits](EMULATOR_PATCH.md) and [Linux build instructions](BUILD.md).
 
 **Piracy is not supported.** Use only files and artwork you have lawfully obtained and are authorized to use. No games, game artwork, firmware or Nintendo keys are provided. Nintendo Switch, Nintendo Switch 2 and related marks belong to Nintendo; game content belongs to its respective rights holders. This is an independent project, not affiliated with, sponsored by or endorsed by Nintendo. See [ownership and use notices](DISCLAIMER.md).
 
 > **Caution — experimental software:** set emulator memory to **12 GiB** before testing Switch 2 packages. The app does not change this setting. The patch is optional and only applies to recognized compatible code; it cannot add Switch 2 emulation to an unsupported emulator. Verification checks package integrity, not booting or gameplay.
 
-A startup caution explains this before using the GUI. **Don't show this again** stores only a local preference under `%LOCALAPPDATA%\NSPBox\preferences.json`; the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
+A startup caution explains this before using the GUI. **Don't show this again** stores a local preference under `%LOCALAPPDATA%\NSPBox\preferences.json` on Windows or `$XDG_CONFIG_HOME/NSPBox/preferences.json` on Linux (`~/.config/NSPBox/preferences.json` when `XDG_CONFIG_HOME` is unset); the same guidance remains in **Notes & compatibility**. Command-line builds do not show a dialog.
 
 **Without the emulator patch**, retain the exact game's external `main.npdm` in its own package folder. Selecting 12 GiB alone can boot with Switch 1 timing and reduced performance. The corrected patch matches external-NPDM startup timing in the checked builds; equal FPS across all games/builds is not guaranteed.
 
-NSP output streams directly to its destination without an intermediate container. The app includes square artwork cropping, clipboard and drag-and-drop support, progress/cancellation, and full output verification.
+NSP output streams directly to its destination without an intermediate container. The app includes square artwork cropping, clipboard and progress/cancellation support, plus full output verification. Native shell drag-and-drop support is available on Windows.
 
 **Experimental build with limited real-world testing.** If anything goes wrong, [open an issue](https://github.com/smarkyie/NSP-Box/issues/new) with your app/emulator versions, reproduction steps and error messages. Do not upload game files, keys or personal paths.
 
 ## Quick start
 
-1. Extract the entire ZIP to a writable folder.
-2. Open `NSP-Box.exe`. Python is bundled; installation is not required.
-3. Click **Browse folder** and select your main game dump folder, or drag the folder into the window. Pasting a folder path and pressing Enter also works.
-4. Select the complete snapshot you want from the dropdown. The app reads its title ID from `main.npdm`.
-5. Edit the displayed game name/version if needed. Add, drop or paste artwork, then click **Crop icon** to position it. Select an NSP destination filename in Output.
-6. Leave **Verify after building** checked. **Create package folder** beneath it is on by default: a folder named after the output file contains the package, a metadata companion and JSON verification report. Uncheck it to save only the selected NSP. Then click **Build NSP**.
+### Windows
+
+1. Extract the entire ZIP to a writable folder and open `NSP-Box.exe`. Python is bundled; installation is not required.
+2. Click **Browse folder** and select your main game dump folder, or drag the folder into the window. Pasting a folder path and pressing Enter also works.
+3. Select the complete snapshot you want from the dropdown. The app reads its title ID from `main.npdm`.
+4. Edit the displayed game name/version if needed. Add, drop or paste artwork, then click **Crop icon** to position it. Select an NSP destination filename in Output.
+5. Leave **Verify after building** checked. **Create package folder** beneath it is on by default: a folder named after the output file contains the package, a metadata companion and JSON verification report. Uncheck it to save only the selected NSP. Then click **Build NSP**.
+
+### Linux x86_64 (AppImage)
+
+1. Allow the `.AppImage` file to run as a program, then double-click it or launch it from a terminal.
+2. Click **Browse folder** and select your main game dump folder. Select the complete snapshot from the dropdown.
+3. Edit the displayed game name/version if needed. Add or paste artwork, then click **Crop icon**. Select an NSP destination filename in Output.
+4. Leave **Verify after building** checked and click **Build NSP**.
 
 The app never overwrites an existing package and does not modify your source files. Cancellation removes the unfinished package. Verification works in both modes; it does not require saving a report. Allow roughly the input size plus 2% and 32 MB free disk space. Packages up to **32 GiB** are supported.
 
@@ -106,7 +114,8 @@ The GUI's export button saves another copy without overwriting anything. Setup r
 
 ## Portability and privacy
 
-- Windows 10/11 x64; no administrator rights, Python installation, emulator installation, or network connection required.
+- Windows 10/11 x64 EXE and Linux x86_64 AppImage; Python installation and network connection are not required at runtime.
+- The AppImage bundles the Python application runtime. Its glibc compatibility depends on the Linux distribution used to build it; build on the oldest target distribution you need to support.
 - The one-file EXE unpacks its bundled runtime into the Windows temporary directory at launch and cleans it up on normal exit.
 - No telemetry, upload or automatic downloading. Emulator setup runs only when explicitly selected; builds do not change emulator configuration.
 - When package-folder output is enabled, paths appear in its local JSON report. Review or remove reports before sharing them if you do not want to disclose local folder names.

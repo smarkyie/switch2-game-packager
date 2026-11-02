@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 project = Path(SPECPATH)
 a = Analysis([str(project/'src'/'app.py')], pathex=[str(project/'src')],
-             binaries=[], datas=[(str(project/'src'/'assets'), 'assets')], hiddenimports=[], hookspath=[], hooksconfig={},
+             binaries=[], datas=[(str(project/'src'/'assets'), 'assets')], hiddenimports=['PIL._tkinter_finder'], hookspath=[], hooksconfig={},
              runtime_hooks=[], excludes=['numpy','scipy','matplotlib','pandas','pytest'],
              noarchive=False, optimize=0)
 # Windows 10/11 supplies the Universal CRT/API-set DLLs. Do not collect copies
